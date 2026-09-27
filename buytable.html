@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>무매헬퍼 by 선비 · 매매표</title>
+<meta name="description" content="무한매수법 v4.0 매매표 — 오늘 넣을 매수·매도 주문표. 국면별 주문 가격과 수량을 계산합니다.">
+<!-- 카페·카톡 링크 미리보기 카드 (검색 목적 아님) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="무매헬퍼 by 선비">
+<meta property="og:title" content="무매헬퍼 by 선비 · 매매표">
+<meta property="og:description" content="무한매수법 v4.0 매매표 — 오늘 넣을 매수·매도 주문표. 국면별 주문 가격과 수량을 계산합니다.">
+<meta property="og:image" content="https://infinite.smartdailyinfo.com/og-image.png?v=260730b">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.ico?v=1">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=1">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1">
+<script>/* 화면모드: 수동 선택(bttheme 쿠키) 있으면 첫 렌더 전 적용 — 없으면 OS 자동 */
+(function(){var m=document.cookie.match(/(?:^|;\s*)bttheme=(dark|light)/);if(m)document.documentElement.dataset.theme=m[1];})();</script>
+<link rel="stylesheet" href="style.css?v=260905a">
+<style>/* 이 페이지 전용: ★%/큰수 토글 버튼(시트 E29 '별토글') — 첫 매수점이 큰수 LOC일 때만 표시 */
+.starBtn{background:#7c3aed}
+/* R토글(시트 G29) 버튼 '매수 불가'/'불가 해제' — 리버스에서 매수시도액<주가라 한 주도 못 사는
+   날에만 표시. 기본은 꺼짐(★% 그대로)이고, 누르면 매수 첫점이 빠지고(사다리만) 매도 ★% 줄이
+   '매수 불가 최저 호가'로 앞당겨진다.
+   색 = 매도색 var(--down) — 이 버튼이 실제로 매도 쪽으로 바꾸니 의미가 맞고, 옆의 적용(빨강)·
+   ★%(보라)와도 확실히 구분된다. 구 초록(#16a34a)은 리버스 국면색·MOC 라벨과 겹쳐 폐기(2026-08-04) */
+.revBtn{background:var(--down)}</style>
+
+
+</head>
+<body>
+<div class="wrap">
+  <header class="pagehdr">
+    <h1>매매표</h1>
+    <button id="themeBtn" class="themebtn" type="button" aria-label="라이트/다크 모드 전환">🌙</button>
+  </header>
+  <div id="msgbox" class="panel" style="padding:24px 16px;text-align:center">계산 중…</div>
+
+  <div id="results" hidden>
+    <a class="navbtn green" id="resLink" href="#">← 백테스트 결과</a>
+    <section class="panel">
+      <h2>현재 상태</h2>
+      <div class="stat" id="stat"></div>
+    </section>
+    <section class="panel">
+      <h2>매매표 <span class="phaseTag" id="btPhase">—</span></h2>
+      <div class="bs2">
+        <div>
+          <div class="cap buy">&lt; 매수점 &gt; <small id="budget"></small></div>
+          <div class="manualWrap">
+            <div class="manualCol">
+              <div class="manualRow"><label>임의</label><input id="manualPrice" inputmode="decimal" placeholder="급등락 시 최고값 수정"></div>
+              <div class="manualRow"><label>분할</label><input id="splitManual" inputmode="decimal" placeholder="액면분할 예정 배수"></div>
+            </div>
+            <button id="manualBtn" type="button" class="applyBtn">적용</button>
+            <button id="starBtn" type="button" class="applyBtn starBtn" hidden>★% 적용</button>
+            <button id="revBtn" type="button" class="applyBtn revBtn" hidden>매수 불가</button>
+          </div>
+          <div class="buyPt">
+            <table class="bt">
+              <thead><tr><th>종가대비</th><th class="colHead">구분</th><th>가격</th><th>개수</th></tr></thead>
+              <tbody id="buyBody"></tbody></table>
+          </div>
+        </div>
+        <div>
+          <div class="cap sell">&lt; 매도점 &gt; <small id="sellCap"></small></div>
+          <table class="bt">
+            <thead><tr><th>종가대비</th><th class="colHead">구분</th><th>가격</th><th>개수</th></tr></thead>
+            <tbody id="sellBody"></tbody></table>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const money=n=>n==null?'—':'$'+Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+// 매수시도(예산)만 소수 3자리 — 사용자 지정 2026-08-04 (서버가 이미 4째자리에서 반올림해 보낸다)
+const money3=n=>n==null?'—':'$'+Number(n).toLocaleString(undefined,{minimumFractionDigits:3,maximumFractionDigits:3});
+const price=n=>n==null?'—':'$'+Number(n).toFixed(2);
+const price3=n=>n==null?'—':'$'+Number(n).toFixed(3);
+const pct=n=>n==null?'—':(n*100).toFixed(2)+'%';
+const cls=n=>n>=0?'up':'down';
+const num=n=>n==null?'—':Number(n).toLocaleString();
+const gapHtml=g=>g==null?'':`<span class="g ${g>=0?'up':'down'}">${g>=0?'+':''}${Number(g).toFixed(1)}%</span>`;
+const gapHtmlR=g=>g==null?'':`<span class="g ${g>=0?'down':'up'}">${g>=0?'+':''}${Number(g).toFixed(1)}%</span>`;   // 색 반대(+파랑 -빨강)
+const labClass=t=>t==='MOC'?'k5':t&&t.includes('지정가')?'k4':'k2';   // MOC(리버스 진입일)=초록(k5) · 지정가=빨강(k4) · 나머지=보라(k2)
+const fmtT=t=>t==null?'—':String(Math.round(t*1000)/1000);   // T = 소수점 3자리 반올림, 뒤 0은 생략 (12 · 12.5 · 12.345)
+const phaseCls=p=>p==='전반전'?'ph-red':p==='후반전'?'ph-blue':p==='새사이클'?'ph-orange':p==='리버스'?'ph-green':'';
+const yymmdd=s=>{ if(!s)return ''; const p=String(s).split('-'); return p.length<3?s:p[0].slice(2)+'/'+p[1]+'/'+p[2]; };
+
+function renderState(s){
+  const pc=phaseCls(s.국면);   // 국면색: 전반=빨강·후반=파랑·새사이클=주황·리버스=초록
+  const cells=[
+    // 라벨=현국면 · 값='T 12.34' (숫자는 국면색, 앞의 T만 본문색 — 다크=흰색·라이트=검정.
+    //   흰색 고정은 라이트모드 배경(#eef2ff)에 묻힌다. 인라인 스타일 = style.css 캐시버스팅 회피)
+    {k:s.국면, v:`<span style="color:var(--ink);margin-right:4px">T -</span>${fmtT(s.회차T)}<span style="color:var(--ink)"> / ${s.분할수}</span>`,
+     phase:1, c:pc},
+    {k:'주문날짜', v:yymmdd(s.주문날짜)},
+    {k:'잔금', v:money(s.잔금)},
+    {k:'보유개수', v:num(Math.round(s.누적개수))},   // 계좌 상태 = 잔금 옆에
+    {k:s.큰수기준!=null?'큰수('+(s.큰수기준*100).toFixed(0)+'%)':'큰수', v:price(s.큰수LOC)},   // 매수시도 카드 자리로 당김
+    {k:'★%', v:price(s['★%LOC'])+gapHtmlR(s['★%LOC갭'])},
+    {k:'목표가', v:price(s.목표지정가)+gapHtmlR(s.목표갭)},
+  ];
+  // 카드 이름 'R종료' — 사용자 지정 2026-08-01 (값은 그대로 시트 E21 = 리버스 종료 지정가).
+  //   ⚠ 엑셀엔 T열 'R종료'(리버스 종료 신호 '+')가 따로 있다. 이름만 같고 다른 것 — 여긴 가격.
+  if(s.R목표!=null) cells.push({k:'R종료', v:price(s.R목표)});          // 리버스일 때만 (엑셀 E20/E21)
+  if(s.분할임의!=null) cells.push({k:'분할', v:'÷'+s.분할임의});
+  $('stat').innerHTML=cells.map(c=>
+    `<div class="s${c.phase?' phaseCell':''}"><div class="k">${c.k}</div><div class="v ${c.c||''}">${c.v}</div></div>`).join('');
+}
+// 매수점 '아래 가격'(첫 매수점 별or큰수 + 전반전 평단 LOC 제외) 표시 규칙 — 사용자 지정 2026-07-31:
+// 기본 5행, 다만 마지막 가격이 종가 대비 30%까지 안 벌어졌으면 30% 이상 벌어지는 첫 지점까지 자동 연장.
+// LAD_MAX = 자동 연장 상한 20행 (사용자 지정 2026-08-01) — 계좌가 크면 -30%까지 수백 행이 필요해
+//   표가 너무 길어진다. 20행에서 끊고, 더 아래는 ＋버튼으로 원하는 만큼 이어 본다.
+const LAD_MIN=5, LAD_GAP=30, LAD_MAX=20;
+let _lastBt=null, _buyPlus=0;     // ＋버튼으로 더 붙인 행 수 (자동 연장분 위에 얹는다)
+let _starView=false;              // ★%/큰수 토글 상태(시트 E29='별') — 적용 후에도 직전 상태 유지
+// R토글 상태(시트 G29) — **기본 해제**(사용자 지정 2026-08-04). 버튼 자체는 서버가 bt.R스위칭을
+//   줄 때(=리버스 + 매수시도액<주가)만 뜨고, 눌러야 켜진다.
+let _revView=false;
+const rd2=x=>Math.trunc(parseFloat((x*100).toFixed(9)))/100;   // 엑셀 ROUNDDOWN(x,2) (부동소수 노이즈 클램프)
+function renderBuytable(bt){
+  _lastBt=bt;
+  $('btPhase').textContent=bt.국면;
+  $('budget').textContent='매수시도 '+money3(bt.예산);
+  // R토글 — bt.R스위칭이 있을 때(=리버스 + 매수시도액<주가)만 버튼 노출. **기본은 해제 상태**.
+  const rsw=bt.R스위칭||null, rb=$('revBtn');
+  if(!rsw) _revView=false;                    // 상황이 사라지면 해제로 복귀
+  const revOn=!!(rsw&&_revView), rv=rsw?(revOn?rsw.켬:rsw.끔):null;
+  if(rb){ rb.hidden=!rsw; rb.textContent=revOn?'불가 해제':'매수 불가';
+          rb.title=revOn?'원래 ★% 매수·매도점으로 되돌리기':'매수시도액이 주가보다 낮아 한 주도 못 사는 날 — 매수 첫점을 빼고 매도를 앞당긴다'; }
+  // ★%/큰수 토글 — R토글이 켜진 동안엔 매수 첫점 자체가 없어 의미가 없다(시트 D104도 통째 공란).
+  const alt=bt.별대안||null, sb=$('starBtn');
+  if(sb){ sb.hidden=!alt||revOn; sb.textContent=_starView?'큰수 적용':'★% 적용';
+          sb.title=_starView?'큰수 기준으로 보기':'★% 기준으로 보기'; }
+  const useAlt=_starView&&alt&&!revOn;
+  // R토글 켬: 매수 첫점 삭제(사다리만) + 사다리기준 0 + 매도 첫 줄 라벨·가격·갭 교체
+  //   — 시트 D104/E104 · G104(★% LOC→LOC) · H104.
+  const buy=((rv?rv.매수점:(useAlt?alt.매수점:bt.매수점))||[]).slice(), sell=(bt.매도점||[]).slice();
+  if(rv&&sell.length) sell[0]={...sell[0], 라벨:rv.매도라벨, 가격:rv.매도가, 갭:rv.매도갭};
+  const base=rv?rv.사다리기준:(useAlt?alt.사다리기준:bt.사다리기준);
+  const hasLad=base!=null&&bt.사다리예산!=null;
+  // 개수에서 뺄 고정행: 첫 매수점(별or큰수·임의) + 전반전의 평단 LOC. 그 아래(별 ½ LOC·사다리)만 센다.
+  const fixed=(buy.length>1&&buy[1].라벨==='평단 LOC')?2:Math.min(1,buy.length);
+  if(hasLad){   // 가격=ROUNDDOWN(예산/(기준수량+k),2), 행당 1주 — 엑셀 표 행수와 무관하게 k 무제한
+    const B=bt.사다리예산, cl=bt.갭기준;
+    const add=k=>{ const p=rd2(B/(base+k));
+                   buy.push({라벨:'LOC',가격:p,수량:1,갭:cl?(p/cl-1)*100:null}); };
+    const deep=()=>{ const g=buy[buy.length-1].갭; return !cl||(g!=null&&g<=-LAD_GAP); };   // 종가 대비 30% 이상 벌어졌나
+    let k=0;
+    while(k<LAD_MAX&&(buy.length-fixed<LAD_MIN||!deep())) add(++k);   // 5행 + (-30% 도달 전이면 계속)
+    for(let j=0;j<_buyPlus;j++) add(++k);                             // ＋버튼 몫은 자동 연장 위에 그대로
+  }
+  const row=p=>`<tr><td>${gapHtml(p.갭)}</td><td class="colHead"><span class="lbl ${labClass(p.라벨)}">${p.라벨}</span></td><td>${price(p.가격)}</td><td>${num(Math.round(p.수량))}</td></tr>`;
+  let bhtml=buy.map(row).join('');
+  if(!buy.length&&!hasLad) bhtml=`<tr><td colspan="4" class="emptyNote">리버스 진입일 — 매수 없음</td></tr>`;   // 시트 260727(2): 진입 첫날 매수 공란
+  if(hasLad) bhtml+=`<tr class="moreRow"><td colspan="4"><button type="button" class="moreBtn" id="buyMore">＋ 가격 추가</button></td></tr>`;
+  $('buyBody').innerHTML=bhtml;
+  const mb=$('buyMore');
+  if(mb) mb.onclick=()=>{ _buyPlus++; renderBuytable(_lastBt); };
+  if(sb) sb.onclick=()=>{ _starView=!_starView; renderBuytable(_lastBt); };
+  if(rb) rb.onclick=()=>{ _revView=!revOn; renderBuytable(_lastBt); };
+  if(sell.length){
+    $('sellBody').innerHTML=sell.map(p=>
+      `<tr><td>${gapHtml(p.갭)}</td><td class="colHead"><span class="lbl ${labClass(p.라벨)}">${p.라벨}</span></td><td>${price(p.가격)}</td><td>${num(Math.round(p.수량))}</td></tr>`).join('');
+    $('sellCap').textContent = '';
+  }else{
+    $('sellBody').innerHTML=`<tr><td colspan="4" class="emptyNote">새 사이클 — 매도점 없음 (보유 0)</td></tr>`;
+    $('sellCap').textContent='';
+  }
+}
+
+// 페이지별 서브도메인 — 전부 같은 컨테이너(localhost:8000)를 역방향 프록시로 나눠 씀.
+// 주소에 파일명 미노출 (2026-07-27) — api.py의 _HOST_ROOT가 도메인 루트를 해당 페이지로 보낸다.
+/* 로컬(uvicorn 직접)에선 호스트 분기가 없어 파일명으로 이동 — site.js와 같은 PROD 감지.
+   운영 동작은 그대로(파일명 미노출, _HOST_ROOT가 서브도메인 루트를 그 파일로 보낸다). */
+const PROD = false;
+const U=(sub,page)=>PROD?`https://${sub}.smartdailyinfo.com/`:page;
+const INPUT_URL=U('infinite','index.html'),
+      RESULTS_URL=U('btresult','results.html'),
+      APPLY_URL=U('btmanual','buytable.html');   // 임의·분할 적용 매매표 뷰
+const P=new URLSearchParams(location.search);
+/* 설정 소스: URL 파라미터(구형 공유링크 호환) 우선, 없으면 부모도메인 쿠키(btp — 메인페이지가 저장). */
+const COOKIE_DOMAIN=location.hostname.endsWith('smartdailyinfo.com')?';domain=.smartdailyinfo.com':'';
+function saveParams(o){ document.cookie='btp='+encodeURIComponent(JSON.stringify(o))+COOKIE_DOMAIN+';path=/;max-age=31536000;samesite=lax'; }
+function loadParams(){ const m=document.cookie.match(/(?:^|;\s*)btp=([^;]*)/); if(!m) return null; try{ return JSON.parse(decodeURIComponent(m[1])); }catch(e){ return null; } }
+const CK=loadParams();
+const gp=k=>{ const v=P.get(k); return (v!=null&&v!=='')?v:(CK&&CK[k]!=null?String(CK[k]):null); };
+const effParams=()=>{ const o={}; ['ticker','seed','div','sell','big','fee','start','pre','end','mode','lt','lcash','lsh','lavg','lrev'].forEach(k=>{ const v=gp(k); if(v!=null) o[k]=v; }); return o; };
+/* '내 상태로 시작'(mode=live): 기준일(start) 장마감 실계좌 스냅샷 → API 내상태로 전달
+   (키는 l 접두사 — 매매기록 수정 전달용 shares/balance URL 파라미터와 충돌 방지) */
+const liveState=()=>{
+  if(gp('mode')!=='live') return null;
+  const st={T:Number(gp('lt'))||0, 잔금:Number(gp('lcash'))||0, 누적개수:Number(gp('lsh'))||0, 리버스:gp('lrev')==='1'};
+  const av=Number(gp('lavg')); if(st.누적개수>0&&isFinite(av)&&av>0) st.평단=av;
+  return st;
+};
+// 적용 뷰로 넘어온 값 시딩 (mp=임의값 / sm=분할 / sv=★%토글) → 입력칸 채우고 첫 계산부터 반영
+const _mpUrl=P.get('mp'), _smUrl=P.get('sm');
+if(_mpUrl) $('manualPrice').value=_mpUrl;
+if(_smUrl) $('splitManual').value=_smUrl;
+/* 모바일: 임의·분할 입력칸을 탭하면 탭 위치와 무관하게 커서를 맨 뒤로 (설정 페이지와 동일 규칙).
+   focus 순간에만 — 다시 탭하면 원하는 자리로 옮길 수 있다. 터치 기기 전용(pointer:coarse). */
+if(window.matchMedia && window.matchMedia('(pointer: coarse)').matches){
+  document.querySelectorAll('.manualRow input[inputmode]').forEach(el=>{
+    el.addEventListener('focus',()=>setTimeout(()=>{
+      const n=el.value.length; try{ el.setSelectionRange(n,n); }catch(e){}
+    },0));
+  });
+}
+_starView=P.get('sv')==='1';   // 적용 직전의 ★%/큰수 상태 이어받기
+_revView=P.get('rv')==='1';    // 적용 직전의 R토글 상태 이어받기 (없으면 기본 해제)
+const APPLY_VIEW=!!(_mpUrl||_smUrl);   // 이 페이지 자체가 적용 뷰 → 버튼은 제자리 재계산
+let _syOnce=parseInt(P.get('sy')||'',10);   // 적용 이동 직전 스크롤 위치 — 첫 렌더 후 한 번 복원
+if(!isFinite(_syOnce))_syOnce=null;
+// 적용 파라미터(mp/sm/sy/sv/rv)는 1회성 소비 — 즉시 URL에서 제거 (쿠키에도 저장 안 함).
+// → 새로고침·재방문·다른 페이지로 가는 링크에 안 실려서, 매매표를 새로 열면 항상 기본 상태.
+if(['mp','sm','sy','sv','rv'].some(k=>P.get(k)!=null)){
+  ['mp','sm','sy','sv','rv'].forEach(k=>P.delete(k));
+  const q=P.toString();
+  history.replaceState(null,'',location.pathname+(q?'?'+q:''));
+}
+$('resLink').href=RESULTS_URL+location.search;   // 정리된 URL 기준 (임의·분할 파라미터 미전파)
+// 적용/해제 상태 — 마지막 계산에 실제 반영된 임의·분할 입력값 (없으면 null)
+let _appliedMp=_mpUrl||null, _appliedSm=_smUrl||null;
+function _isClear(){   // '해제' 모드인가: 적용된 값이 있고 입력칸이 그 값 그대로일 때
+  if(_appliedMp==null&&_appliedSm==null) return false;
+  return $('manualPrice').value.trim()===(_appliedMp==null?'':String(_appliedMp).trim()) &&
+         $('splitManual').value.trim()===(_appliedSm==null?'':String(_appliedSm).trim());
+}
+function _syncApplyBtn(){ $('manualBtn').textContent=_isClear()?'해제':'적용'; }
+function doApply(){   // '적용' — 원본 매매표에선 값을 URL에 실어 적용 뷰로 이동, 적용 뷰에선 제자리 갱신
+  const mn=Number(String($('manualPrice').value).replace(/[^0-9.\-]/g,''));
+  const sn=Number(String($('splitManual').value).replace(/[^0-9.\-]/g,''));
+  const hasMp=isFinite(mn)&&mn>0, hasSm=isFinite(sn)&&sn>0;
+  if(!APPLY_VIEW && (hasMp||hasSm)){
+    const p=new URLSearchParams(location.search);
+    if(hasMp) p.set('mp', mn); else p.delete('mp');
+    if(hasSm) p.set('sm', sn); else p.delete('sm');
+    if(_starView) p.set('sv','1'); else p.delete('sv');   // ★%/큰수 직전 상태 이어받기
+    if(_revView) p.set('rv','1'); else p.delete('rv');    // R토글 직전 상태 이어받기
+    p.set('sy', String(Math.round(window.scrollY||0)));   // 지금 보던 스크롤 위치를 실어 보냄
+    location.href=APPLY_URL+'?'+p.toString();
+    return;
+  }
+  _appliedMp=hasMp?$('manualPrice').value.trim():null;
+  _appliedSm=hasSm?$('splitManual').value.trim():null;
+  _syncApplyBtn(); run();
+}
+function doClear(){   // '해제' — 입력값은 칸에 그대로 두고 계산에서만 제외, 기본 매매표로 재계산 (★%토글 유지)
+  _appliedMp=_appliedSm=null;
+  _syncApplyBtn(); run();
+}
+$('manualBtn').onclick=()=>{ _isClear()?doClear():doApply(); };
+$('manualPrice').addEventListener('keydown',e=>{if(e.key==='Enter')doApply();});
+$('splitManual').addEventListener('keydown',e=>{if(e.key==='Enter')doApply();});
+$('manualPrice').addEventListener('input',_syncApplyBtn);   // 값 수정 시 '해제'→'적용' 복귀
+$('splitManual').addEventListener('input',_syncApplyBtn);
+_syncApplyBtn();   // 초기 라벨: 적용 뷰로 들어왔으면 '해제', 아니면 '적용'
+
+async function run(){
+  const start=gp('start');
+  if(!start){ $('msgbox').innerHTML=`설정이 없습니다. <a href="${INPUT_URL}">설정으로 돌아가기</a>`; return; }
+  const body={
+    ticker:(gp('ticker')||'SOXL').toUpperCase(),
+    시드:Number(gp('seed'))||20000,
+    분할수:Number(gp('div'))||20,
+    매도목표:(Number(gp('sell'))||20)/100,
+    큰수기준:(Number(gp('big'))||12)/100,
+    수수료율:(Number(gp('fee'))||0)/100,
+    시작일:start,
+    프리장반영:gp('pre')==='1',
+    일자별포함:false,
+  };
+  const _end=gp('end'); if(_end) body.종료일=_end;   // 미지정=데이터 끝까지
+  const _lst=liveState(); if(_lst) body.내상태=_lst;  // 내 상태로 시작 (기준일=start 스냅샷)
+  const _bal=P.get('balance');   // 결과페이지 매매기록에서 수정한 잔금 → 매매표 재계산
+  if(_bal){ const bn=Number(String(_bal).replace(/[^0-9.\-]/g,'')); if(isFinite(bn)) body.잔금=bn; }
+  const _sh=P.get('shares');     // 수정한 누적개수(마지막 날짜) → 매도수량·국면 재계산
+  if(_sh){ const an=Number(String(_sh).replace(/[^0-9.]/g,'')); if(isFinite(an)&&an>=0) body.누적개수=an; }
+  const _cs=P.get('closes');     // 결과페이지 매매기록에서 수정한 종가들(날짜:값,…) → 해당 날짜부터 전체 재계산
+  if(_cs){ const m={}; _cs.split(',').forEach(s=>{ const i=s.indexOf(':'); if(i>0){ const n=Number(s.slice(i+1)); if(isFinite(n)&&n>0) m[s.slice(0,i)]=n; } }); if(Object.keys(m).length) body.종가수정=m; }
+  // 임의값 D29 / 분할임의 D28 — 입력칸이 아니라 '적용된 값'(_applied*)만 계산에 반영.
+  // 해제 상태에선 칸에 값이 남아 있어도 기본 매매표로 계산된다.
+  if(_appliedMp){ const mn=Number(String(_appliedMp).replace(/[^0-9.\-]/g,'')); if(isFinite(mn)&&mn>0) body.임의값=mn; }
+  if(_appliedSm){ const sn=Number(String(_appliedSm).replace(/[^0-9.\-]/g,'')); if(isFinite(sn)&&sn>0) body.분할임의=sn; }
+  try{
+    const r=await fetch('/api/backtest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok){ const err=await r.json().catch(()=>({})); throw new Error(err.detail||('HTTP '+r.status)); }
+    const d=await r.json();
+    saveParams(effParams());   // 성공한 설정을 쿠키에 갱신 (구형 링크로 와도 이후 내부 이동은 쿠키로)
+    $('msgbox').hidden=true; $('results').hidden=false;
+    renderState(d.현재상태); renderBuytable(d.매수표);
+    const c=d.설정;
+    document.title=`${body.ticker} 매매표 · 무매헬퍼 by 선비`;
+    if(_syOnce!=null){ const y=_syOnce; _syOnce=null; requestAnimationFrame(()=>window.scrollTo(0,y)); }   // 이동 전 보던 위치로
+  }catch(e){
+    $('msgbox').innerHTML=`<span class="up">오류: ${e.message}</span> · <a href="${INPUT_URL}">설정으로 돌아가기</a>`;
+  }
+}
+run();
+</script>
+<script>/* 🌙/☀️ 수동 테마 토글 — bttheme 쿠키(부모도메인)로 전 서브도메인 공유, 미선택 시 OS 자동 */
+(function(){
+  var b=document.getElementById('themeBtn'); if(!b) return;
+  var D=location.hostname.endsWith('smartdailyinfo.com')?';domain=.smartdailyinfo.com':'';
+  var mq=window.matchMedia('(prefers-color-scheme: dark)');
+  function eff(){return document.documentElement.dataset.theme||(mq.matches?'dark':'light');}
+  function paint(){var d=eff()==='dark';b.textContent=d?'☀️':'🌙';b.title=d?'라이트 모드로 전환':'다크 모드로 전환';}
+  b.addEventListener('click',function(){
+    var next=eff()==='dark'?'light':'dark';
+    document.documentElement.dataset.theme=next;
+    document.cookie='bttheme='+next+D+';path=/;max-age=31536000;samesite=lax';
+    paint();
+  });
+  mq.addEventListener&&mq.addEventListener('change',paint);
+  paint();
+})();</script>
+<script src="site.js?v=260905a"></script>
+</body>
+</html>

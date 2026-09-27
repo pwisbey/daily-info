@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>무매헬퍼 by 선비 · 설정 비교</title>
+<meta name="description" content="무한매수법 v4.0 설정 비교 — 다른 조건은 그대로 두고 분할수·매도목표 조합만 바꿔 정규화 자산곡선과 MDD를 겹쳐 봅니다.">
+<!-- 카페·카톡 링크 미리보기 카드 (검색 목적 아님) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="무매헬퍼 by 선비">
+<meta property="og:title" content="무매헬퍼 by 선비 · 설정 비교">
+<meta property="og:description" content="무한매수법 v4.0 설정 비교 — 분할수·매도목표 조합별 정규화 자산곡선·MDD·CAGR 비교.">
+<meta property="og:image" content="https://infinite.smartdailyinfo.com/og-image.png?v=260730b">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.ico?v=1">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=1">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1">
+<script>/* 화면모드: 수동 선택(bttheme 쿠키) 있으면 첫 렌더 전 적용 — 없으면 OS 자동 */
+(function(){var m=document.cookie.match(/(?:^|;\s*)bttheme=(dark|light)/);if(m)document.documentElement.dataset.theme=m[1];})();</script>
+<link rel="stylesheet" href="style.css?v=260905a">
+<script src="chart.js?v=260803f"></script>   <!-- initChart — 결과 페이지와 공용 -->
+<style>
+/* 이 페이지 전용 */
+.baseline{font-size:13px;color:var(--muted);padding:10px 14px;border-bottom:1px solid var(--line);line-height:1.5}
+.cmpRows{padding:12px 14px;display:flex;flex-direction:column;gap:9px}
+.cmpRow{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted);font-weight:700}
+.cmpRow .sw{width:13px;height:13px;border-radius:4px;flex:none}          /* 곡선 색 견본 */
+.cmpRow input{width:64px;flex:none;box-sizing:border-box;-webkit-appearance:none;appearance:none;font:inherit;
+  font-size:15px;font-variant-numeric:tabular-nums;text-align:right;padding:6px 8px;
+  border:1px solid var(--inputline);border-radius:8px;background:var(--bg);color:var(--ink)}
+.cmpRow{flex-wrap:wrap}                                                   /* 최적 버튼이 늘어 모바일에선 줄바꿈 */
+.cmpRow .cur{font-size:11.5px;font-weight:800;color:#fff;background:#2563eb;border-radius:999px;padding:2px 7px}
+/* 최적 찾기 — 그 행 분할수로 매도목표를 훑어 칸을 채운다 (2026-08-01) */
+.cmpItem{display:flex;flex-direction:column}
+.cmpRow .opt{flex:none;font:inherit;font-size:13px;font-weight:800;color:#fff;background:#7c3aed;
+  border:0;border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+.cmpRow .opt:disabled{opacity:.55;cursor:default}
+.optOut{font-size:12.5px;color:var(--muted);padding:5px 0 0 21px;line-height:1.55}
+.optOut b{color:var(--ink)}
+.optOut.err{color:var(--up);font-weight:700}
+.cmpRow .del{margin-left:auto;flex:none;font:inherit;font-size:15px;line-height:1;color:var(--muted);
+  background:transparent;border:1px solid var(--inputline);border-radius:8px;padding:5px 9px;cursor:pointer}
+.cmpRow .del:hover{background:var(--chip)}
+.cmpAct{display:flex;gap:9px;align-items:center;padding:0 14px 13px}
+.cmpAct .moreBtn{flex:1}
+.cmpAct .gobtn{padding:9px 18px;font-size:15px;background:#2563eb}
+.cmpMsg{font-size:12.5px;color:var(--muted);padding:0 14px 12px}
+.cmpMsg.err{color:var(--up);font-weight:700}
+.legend{flex-wrap:wrap;row-gap:4px}                                       /* 곡선이 최대 7개 → 두 줄 허용 */
+.log td .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:0}
+/* 크로스헤어 값 박스: 곡선이 3개라 결과 페이지보다 작게 — 이름도 '20·20%'로 줄여 넘긴다 (2026-08-01) */
+.dot-label{font-size:11px;padding:2px 6px;gap:4px}
+.dot-label-name{font-size:10.5px}
+.dot-label-dot{width:7px;height:7px}
+@media (max-width:640px){.log{font-size:15px}.log th{font-size:12.5px}}   /* 요약표도 모바일에선 조금 크게 */
+</style>
+
+
+</head>
+<body>
+<div class="wrap">
+  <header class="pagehdr">
+    <h1>설정 비교</h1>
+    <button id="themeBtn" class="themebtn" type="button" aria-label="라이트/다크 모드 전환">🌙</button>
+  </header>
+
+  <div id="msgbox" class="panel" style="padding:24px 16px;text-align:center">설정을 불러오는 중…</div>
+
+  <div id="results" hidden>
+    <a class="navbtn green" id="resLink" href="#">← 백테스트 결과</a>
+
+    <section class="panel">
+      <h2>비교할 조합 <span class="hint">아래 조건은 그대로 두고 분할수·매도목표만 바꿔 계산합니다</span></h2>
+      <div class="baseline" id="baseline"></div>
+      <div class="cmpRows" id="cmpRows"></div>
+      <div class="cmpAct">
+        <button type="button" class="moreBtn" id="addRow">＋ 조합 추가</button>
+        <button type="button" class="gobtn" id="runBtn">비교</button>
+      </div>
+      <div class="cmpMsg" id="cmpMsg"></div>
+    </section>
+
+    <section class="panel">
+      <!-- 주가 곡선 켜기/끄기 (2026-08-02) — 끄면 세로축이 조합 곡선들에 맞춰 다시 잡힌다 -->
+      <h2>정규화 자산곡선<button type="button" class="h2tog" id="eqPxTog" data-on="주가 ON" data-off="주가 OFF" aria-pressed="true" title="주가 곡선을 끄면 세로축이 조합 곡선들에 맞춰 다시 잡힙니다">주가 ON</button></h2>
+      <div class="chartbox">
+        <div class="chart-readout" id="eqReadout">&nbsp;</div>
+        <div class="chart-canvas" id="eqCanvas" style="height:280px">
+          <svg id="eqChart"></svg>
+          <div class="chart-hit" id="eqHit"></div>
+        </div>
+        <div class="chart-foot">
+          <div class="legend" id="eqLegend"></div>
+          <div class="chart-zoom" id="eqZoom"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>MDD <span class="hint">조합별 계좌총액 낙폭 (전고점 대비)</span></h2>
+      <div class="chartbox">
+        <div class="chart-readout" id="ddReadout">&nbsp;</div>
+        <div class="chart-canvas" id="ddCanvas" style="height:220px">
+          <svg id="ddChart"></svg>
+          <div class="chart-hit" id="ddHit"></div>
+        </div>
+        <div class="chart-foot">
+          <div class="legend" id="ddLegend"></div>
+          <div class="chart-zoom" id="ddZoom"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>조합별 요약 <span class="hint" id="sumHint"></span></h2>
+      <div class="logwrap"><table class="log"><thead><tr id="sumHead"></tr></thead><tbody id="sumBody"></tbody></table></div>
+    </section>
+  </div><!-- #results -->
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const money=n=>n==null?'—':'$'+Number(n).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2});   // 시드 표기: $20,000 (센트는 있을 때만)
+const pct2=n=>n==null?'—':(n*100).toFixed(2)+'%';
+const cls=n=>n==null?'':(n>0?'up':n<0?'down':'');
+const yymmdd=s=>{ if(!s)return ''; const p=String(s).split('-'); return p.length<3?s:p[0].slice(2)+'/'+p[1]+'/'+p[2]; };
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* 곡선 색 — 다크/라이트 양쪽에서 서로 구분되는 6색 + 주가 기준선(회색).
+   순서 고정: 입력 행 i번째가 항상 PALETTE[i] (행을 지웠다 넣어도 색-행 대응이 눈에 보임). */
+const PALETTE=['#e5493a','#2563eb','#16a34a','#f59e0b','#a855f7','#06b6d4'];
+const BASECOLOR='#9ca3af';
+/* 조합 개수 상한 — **서버가 정한다**(BT_MAX_COMPARE). 3은 응답 전까지 쓰는 기본값이고,
+   페이지 로드 때 /api/health에서 실제 상한을 받아 갈아끼운다(아래 fetch).
+   로컬 실행본은 로컬실행.command가 이 값을 크게 열어 두고, NAS는 기본 3 그대로 —
+   화면 상한을 서버에서 받아야 두 환경이 어긋나지 않는다(초과분은 서버가 422). */
+let MAXROWS=3;
+
+// 페이지별 서브도메인 — 전부 같은 컨테이너를 역방향 프록시로 나눠 씀.
+const P=new URLSearchParams(location.search);
+/* 설정 소스: URL 파라미터(구형 공유링크 호환) 우선, 없으면 부모도메인 쿠키(btp — 메인페이지가 저장). */
+const COOKIE_DOMAIN=location.hostname.endsWith('smartdailyinfo.com')?';domain=.smartdailyinfo.com':'';
+function loadParams(){ const m=document.cookie.match(/(?:^|;\s*)btp=([^;]*)/); if(!m) return null; try{ return JSON.parse(decodeURIComponent(m[1])); }catch(e){ return null; } }
+const CK=loadParams();
+const gp=k=>{ const v=P.get(k); return (v!=null&&v!=='')?v:(CK&&CK[k]!=null?String(CK[k]):null); };
+
+/* ---------- 기준 설정(비교 대상에서 고정되는 조건) ---------- */
+const BASE={
+  ticker:(gp('ticker')||'SOXL').toUpperCase(),
+  시드:Number(gp('seed'))||20000,
+  큰수기준:(Number(gp('big'))||12)/100,
+  수수료율:(Number(gp('fee'))||0)/100,
+  시작일:gp('start'),
+  프리장반영:gp('pre')==='1',
+};
+const _end=gp('end'); if(_end) BASE.종료일=_end;
+const CUR={div:Number(gp('div'))||20, sell:Number(gp('sell'))||20};   // 현재 설정 = 1번 행 기본값
+/* '내 상태로 시작'(mode=live) — **처음부터 시작(보유개수 0)** 인 경우만 비교를 연다 (사용자 지정 2026-08-01).
+   포지션이 든 스냅샷은 그 분할수로 굴려 만든 상태라 조합을 갈아끼울 수 없다(서버도 422로 막는다).
+   보유개수 0이면 주입되는 게 잔금뿐이고 기준일 다음날부터 새사이클로 굴리므로 조합 비교가 성립한다. */
+const IS_LIVE=gp('mode')==='live';
+const LIVE_SHARES=Number(gp('lsh'))||0;
+// 돌아갈 곳도 모드에 맞춰야 한다 — 라이브면 '내 상태 결과'(mystatus)/'내 상태' 설정(myinfinite)
+/* 로컬(uvicorn 직접)에선 호스트 분기가 없어 파일명으로 이동 — site.js와 같은 PROD 감지.
+   운영 동작은 그대로(파일명 미노출, _HOST_ROOT가 서브도메인 루트를 그 파일로 보낸다). */
+const PROD = false;
+const U=(sub,page)=>PROD?`https://${sub}.smartdailyinfo.com/`:page;
+const INPUT_URL=IS_LIVE?U('myinfinite','mystart-74qz.html'):U('infinite','index.html'),
+      RESULTS_URL=IS_LIVE?U('mystatus','results.html'):U('btresult','results.html');
+$('resLink').href=RESULTS_URL+location.search;
+if(IS_LIVE) $('resLink').textContent='← 내 상태 결과';
+if(IS_LIVE) BASE.내상태={T:0, 잔금:Number(gp('lcash'))||0, 누적개수:0, 리버스:false};
+
+/* ---------- 입력 행 ---------- */
+let _rows=[{...CUR}];              // {div, sell(%)} — 첫 행은 현재 설정
+let _busy=false;
+/* [최적] 버튼을 다는 행 — 사용자 지정 2026-08-01:
+   ① 0번(현재 설정) 행엔 안 단다. 비교의 기준선인데 최적값으로 덮어써 버리면 비교가 성립 안 한다.
+   ② 추가 행에만, **같은 분할수는 하나만**. 분할수가 같으면 최적 매도목표도 같아서 버튼이 중복이다. */
+const divKey=v=>String(v).replace(/[^0-9.\-]/g,'').trim();
+function showOpt(i){
+  if(i===0) return false;
+  for(let j=1;j<i;j++) if(divKey(_rows[j].div)===divKey(_rows[i].div)) return false;
+  return true;
+}
+function optHtml(o){
+  if(!o) return '';
+  if(o.err) return `<div class="optOut err">${esc(o.err)}</div>`;
+  return `<div class="optOut">✓ 최적 매도목표 <b>${(o.매도목표*100).toFixed(1)}%</b>`
+    +` · 최종 평가금 <b>${pct2(o.최종평가율)}</b> · MDD ${pct2(o.MDD_계좌)}`
+    +` <span class="hint">(${o.탐색.간격}% 간격 ${o.탐색.횟수}회)</span></div>`;
+}
+function renderRows(){
+  $('cmpRows').innerHTML=_rows.map((r,i)=>`
+    <div class="cmpItem">
+      <div class="cmpRow" data-i="${i}">
+        <span class="sw" style="background:${PALETTE[i%PALETTE.length]}"></span>
+        <input class="rd" inputmode="numeric" value="${esc(r.div)}" aria-label="분할수">분할
+        <input class="rs" inputmode="decimal" value="${esc(r.sell)}" aria-label="매도목표">%
+        ${showOpt(i)?'<button type="button" class="opt" title="이 분할수에서 최종 평가금이 가장 큰 매도목표를 찾아 넣습니다">최적</button>':''}
+        ${(i===0&&r.div===CUR.div&&r.sell===CUR.sell)?'<span class="cur">현재</span>':''}
+        ${_rows.length>1?'<button type="button" class="del" aria-label="이 조합 삭제">✕</button>':''}
+      </div>
+      ${optHtml(r.opt)}
+    </div>`).join('');
+  $('cmpRows').querySelectorAll('.cmpRow').forEach(el=>{
+    const i=Number(el.dataset.i);
+    // 분할수를 고치면 이전 최적값 안내는 무효. (버튼 노출조건은 다음 렌더에서 다시 따진다 —
+    //  타이핑 중 재렌더하면 그 순간 누른 [최적] 클릭이 DOM 교체로 씹힌다)
+    el.querySelector('.rd').oninput=e=>{ _rows[i].div=e.target.value; _rows[i].opt=null; };
+    el.querySelector('.rs').oninput=e=>{ _rows[i].sell=e.target.value; };
+    const o=el.querySelector('.opt');
+    if(o) o.onclick=e=>runOpt(i, e.currentTarget);
+    const d=el.querySelector('.del');
+    if(d) d.onclick=()=>{ _rows.splice(i,1); renderRows(); };
+  });
+  $('addRow').hidden=_rows.length>=MAXROWS;
+  $('addRow').textContent='＋ 조합 추가';
+}
+/* 모바일: 숫자칸을 탭하면 탭 위치와 무관하게 커서를 맨 뒤로 — 값 중간에 끼어 입력되는 사고 방지.
+   설정·매매표 페이지와 같은 규칙. 다만 여기 행은 renderRows()가 통째로 다시 그리므로
+   칸마다 붙이지 않고 컨테이너에 위임(focusin)해서 새로 그려진 칸에도 계속 먹게 한다.
+   focus 순간에만 적용(setTimeout=브라우저가 탭 위치로 캐럿을 놓은 뒤 덮어쓰기) — 이미 포커스된
+   칸을 다시 탭하면 원하는 자리로 옮길 수 있다. 터치 기기 전용(pointer:coarse). */
+if(window.matchMedia && window.matchMedia('(pointer: coarse)').matches){
+  $('cmpRows').addEventListener('focusin',e=>{
+    const el=e.target;
+    if(!el || el.tagName!=='INPUT' || !el.hasAttribute('inputmode')) return;
+    setTimeout(()=>{ const n=el.value.length; try{ el.setSelectionRange(n,n); }catch(_){} },0);
+  });
+}
+$('addRow').onclick=()=>{
+  if(_rows.length>=MAXROWS) return;
+  const last=_rows[_rows.length-1]||CUR;
+  _rows.push({div:last.div, sell:last.sell});   // 직전 행을 복사 → 숫자 하나만 고치면 됨
+  renderRows();
+};
+
+/* ---------- 최적 매도목표 찾기 (사용자 지정 2026-08-01) ----------
+   그 행의 분할수는 고정하고 매도목표만 0~30%를 훑어 '최종 평가금이 가장 큰' 값을 찾아 칸에 넣는다.
+   서버가 백테스트를 60번 돌리는 요청이라(16년치 ≈ 4초) 버튼을 잠그고 한 번에 하나만 돈다.
+   기간·시드·큰수기준 등 나머지 조건은 이 페이지의 기준설정(BASE) 그대로 — 기간이 바뀌면 최적값도 바뀐다. */
+async function runOpt(i, btn){
+  if(_busy) return;
+  const d=Number(String(_rows[i].div).replace(/[^0-9.\-]/g,''));
+  if(!isFinite(d)||!Number.isInteger(d)||d<4||d>80){
+    _rows[i].opt={err:`분할수는 4~80 사이 정수여야 합니다 (입력: ${_rows[i].div})`}; renderRows(); return;
+  }
+  _busy=true; btn.disabled=true; btn.textContent='찾는 중…'; $('runBtn').disabled=true;
+  $('cmpMsg').className='cmpMsg'; $('cmpMsg').textContent='';
+  try{
+    const r=await fetch('/api/optimize',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({...BASE, 분할수:d})});
+    if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(typeof e.detail==='string'?e.detail:('HTTP '+r.status)); }
+    const o=await r.json();
+    _rows[i].sell=+(o.매도목표*100).toFixed(2);   // 입력칸에 바로 반영 → '비교'만 누르면 곡선까지
+    _rows[i].opt=o;
+  }catch(e){
+    _rows[i].opt={err:'오류: '+e.message};
+  }finally{
+    _busy=false; $('runBtn').disabled=false; renderRows();   // renderRows가 버튼을 새로 만들어 상태 복구
+  }
+}
+
+/* ---------- 입력 검증 (서버와 같은 범위) ---------- */
+function collect(){
+  const out=[], seen=new Set();
+  for(const r of _rows){
+    const d=Number(String(r.div).replace(/[^0-9.\-]/g,'')), s=Number(String(r.sell).replace(/[^0-9.\-]/g,''));
+    if(!isFinite(d)||!Number.isInteger(d)||d<4||d>80) return {err:`분할수는 4~80 사이 정수여야 합니다 (입력: ${esc(r.div)})`};
+    if(!isFinite(s)||s<=0||s>100) return {err:`매도목표는 0 초과 100 이하여야 합니다 (입력: ${esc(r.sell)})`};
+    const k=d+'/'+s;
+    if(seen.has(k)) continue;                    // 같은 조합은 곡선이 겹치기만 하므로 한 번만
+    seen.add(k); out.push({분할수:d, 매도목표:s/100});
+  }
+  if(!out.length) return {err:'비교할 조합이 없습니다.'};
+  return {변형:out, 중복:_rows.length-out.length};
+}
+
+/* ---------- 렌더 ---------- */
+let _eqC=null, _ddC=null;
+const norm=a=>{ const b=a&&a.length?(a[0]||1):1; return (a||[]).map(v=>v==null?null:v/b); };
+function legendHtml(items){   // 범례는 자리가 넉넉하니 원래 라벨(full) 그대로
+  return items.map(s=>`<span><i style="background:${s.color}"></i>${esc(s.full||s.name)} <b class="legv ${s.c||''}">${s.v||''}</b></span>`).join('');
+}
+function renderCompare(d){
+  const dates=d.날짜||[];
+  const vs=d.변형||[];
+  // 크로스헤어 박스 이름은 짧게('20·20%') — 긴 라벨은 박스가 커져 곡선을 가린다. 범례·표는 원래 라벨.
+  const shortLab=v=>`${v.분할수}·${+(v.매도목표*100).toFixed(2)}%`;
+  const eq=vs.map((v,i)=>({name:shortLab(v), full:v.라벨, color:PALETTE[i%PALETTE.length],
+                           values:norm(v.자산곡선), width:i===0?2.4:1.6}));   // 1번 행(보통 현재 설정)만 굵게
+  const base={name:'주가', color:BASECOLOR, values:norm(d.주가곡선)};
+  if(!_eqC){
+    _eqC=initChart('eq',{baseline:1,log:true,fmt:v=>(v*100).toFixed(2)+'%',fmtAxis:v=>(v*100).toFixed(0)+'%'});
+    _eqC.bindToggle($('eqPxTog'),'주가');   // 제목 줄의 [주가 ON/OFF] 버튼 (끈 상태는 다시 비교해도 유지)
+  }
+  _eqC.setData(dates, eq.concat([base]));
+  const dd=vs.map((v,i)=>({name:shortLab(v), full:v.라벨, color:PALETTE[i%PALETTE.length],
+                           values:v.계좌드로다운, width:i===0?2.4:1.6}));
+  if(!_ddC)_ddC=initChart('dd',{fmt:pct2,fmtAxis:v=>(v*100).toFixed(0)+'%'});
+  _ddC.setData(dates, dd);
+  // 범례 값 = 마지막 시점 (PC 전용 — .legv는 모바일에서 숨김)
+  const L=a=>a&&a.length?a[a.length-1]:null;
+  $('eqLegend').innerHTML=legendHtml(eq.concat([base]).map(s=>{
+    const v=L(s.values); return {...s, v:v==null?'':(v*100).toFixed(2)+'%', c:v>=1?'up':'down'};
+  }));
+  $('ddLegend').innerHTML=legendHtml(dd.map(s=>{
+    const v=L(s.values); return {...s, v:pct2(v), c:cls(v)};
+  }));
+  // 요약표
+  $('sumHead').innerHTML=['조합','최종 평가금','CAGR','MDD(계좌)','사이클'].map(h=>`<th>${h}</th>`).join('');
+  // 사이클 열의 '+진행중' = 마지막 사이클 미완료(데이터 끝이 사이클 중간) → 최종 평가금이 아직 확정 아님
+  $('sumBody').innerHTML=vs.map((v,i)=>{
+    const s=v.요약||{};
+    return `<tr>
+      <td class="ctr"><span class="sw" style="background:${PALETTE[i%PALETTE.length]}"></span>${esc(v.라벨)}</td>
+      <td class="ctr ${cls(s.최종평가율!=null?s.최종평가율-1:null)}">${pct2(s.최종평가율)}</td>
+      <td class="ctr ${cls(s.CAGR)}">${pct2(s.CAGR)}</td>
+      <td class="ctr down">${pct2(s.MDD_계좌)} <span class="hint">${yymmdd(s.MDD_계좌_날짜)}</span></td>
+      <td class="ctr">${s.사이클수==null?'—':s.사이클수}${s.진행중?' <span class="hint">+진행중</span>':''}</td></tr>`;
+  }).join('');
+  $('sumHint').textContent=dates.length?`${yymmdd(dates[0])} ~ ${yymmdd(dates[dates.length-1])} · ${dates.length}거래일`:'';
+  $('baseline').innerHTML=`<b>${esc(BASE.ticker)}</b> · 시드 ${money(BASE.시드)} · 큰수기준 ${(BASE.큰수기준*100).toFixed(0)}%`
+    +` · 수수료율 ${(BASE.수수료율*100).toFixed(2)}% · 프리장반영 ${BASE.프리장반영?'ON':'OFF'}`
+    +(dates.length?` · ${yymmdd(dates[0])} ~ ${yymmdd(dates[dates.length-1])}`:'')
+    +(IS_LIVE?` · <b>내 상태로 시작</b> 처음부터(잔금 ${money(BASE.내상태.잔금)}) · 기준일 ${yymmdd(BASE.시작일)} 다음날부터 계산`:'');
+}
+
+/* ---------- 실행 ---------- */
+async function run(){
+  if(_busy) return;
+  /* 포지션이 든 '내 상태로 시작'은 비교 대상이 아니다 — 결과 페이지에서 버튼을 감춰 여기로 올 일이
+     없지만, 직접 주소로 들어온 경우를 위해 막아 둔다. (처음부터 시작=보유개수 0은 통과) */
+  if(IS_LIVE && LIVE_SHARES>0){
+    $('msgbox').innerHTML=`설정 비교는 <b>'처음부터 시작'</b>인 경우에만 쓸 수 있습니다.`
+      +` 넣으신 계좌 상태(보유 ${LIVE_SHARES.toLocaleString()}주)는 그 분할수로 굴려 만든 상태라`
+      +` 다른 조합으로 바꿔 계산할 수 없습니다. <a href="${INPUT_URL}">설정으로 가기</a>`;
+    return;
+  }
+  if(!BASE.시작일){ $('msgbox').innerHTML=`설정이 없습니다. <a href="${INPUT_URL}">설정으로 돌아가기</a>`; return; }
+  const c=collect();
+  if(c.err){ $('cmpMsg').className='cmpMsg err'; $('cmpMsg').textContent=c.err; return; }
+  _busy=true; $('runBtn').disabled=true; $('runBtn').textContent='계산 중…';
+  $('cmpMsg').className='cmpMsg'; $('cmpMsg').textContent='';
+  try{
+    const r=await fetch('/api/compare',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({...BASE, 변형:c.변형})});
+    if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(typeof e.detail==='string'?e.detail:('HTTP '+r.status)); }
+    const d=await r.json();
+    $('msgbox').hidden=true; $('results').hidden=false;
+    renderCompare(d);
+    document.title=`${BASE.ticker} 설정 비교 · 무매헬퍼 by 선비`;
+    if(c.중복) { $('cmpMsg').textContent=`같은 조합 ${c.중복}개는 하나로 합쳤습니다.`; }
+  }catch(e){
+    if($('results').hidden) $('msgbox').innerHTML=`<span class="up">오류: ${esc(e.message)}</span> · <a href="${INPUT_URL}">설정으로 돌아가기</a>`;
+    else { $('cmpMsg').className='cmpMsg err'; $('cmpMsg').textContent='오류: '+e.message; }
+  }finally{
+    _busy=false; $('runBtn').disabled=false; $('runBtn').textContent='비교';
+  }
+}
+$('runBtn').onclick=run;
+renderRows();
+run();   // 첫 진입: 현재 설정 1개만 먼저 그려 두고(기준선 포함), 조합을 더해 다시 누르면 겹쳐 본다
+/* 서버 상한 받아오기 — 값이 다르면 ＋버튼만 다시 그린다(_rows는 그대로라 입력값 손실 없음).
+   실패하면 기본 3으로 계속 — 서버가 어차피 초과분을 422로 막는다. */
+fetch('/api/health').then(r=>r.json()).then(j=>{
+  const m=Number(j&&j.maxCompare);
+  if(isFinite(m)&&m>=1&&m!==MAXROWS){ MAXROWS=m; renderRows(); }
+}).catch(()=>{});
+</script>
+<script>/* 🌙/☀️ 수동 테마 토글 — bttheme 쿠키(부모도메인)로 전 서브도메인 공유, 미선택 시 OS 자동 */
+(function(){
+  var b=document.getElementById('themeBtn'); if(!b) return;
+  var D=location.hostname.endsWith('smartdailyinfo.com')?';domain=.smartdailyinfo.com':'';
+  var mq=window.matchMedia('(prefers-color-scheme: dark)');
+  function eff(){return document.documentElement.dataset.theme||(mq.matches?'dark':'light');}
+  function paint(){var d=eff()==='dark';b.textContent=d?'☀️':'🌙';b.title=d?'라이트 모드로 전환':'다크 모드로 전환';}
+  b.addEventListener('click',function(){
+    var next=eff()==='dark'?'light':'dark';
+    document.documentElement.dataset.theme=next;
+    document.cookie='bttheme='+next+D+';path=/;max-age=31536000;samesite=lax';
+    paint();
+  });
+  mq.addEventListener&&mq.addEventListener('change',paint);
+  paint();
+})();</script>
+<script src="site.js?v=260905a"></script>
+</body>
+</html>

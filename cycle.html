@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>무매헬퍼 by 선비 · 사이클별 기록</title>
+<meta name="description" content="무한매수법 v4.0 사이클별 기록 — 사이클마다 시작일·종료일·소요일과 계좌총액·평가금·월환산 수익률·사이클당 MDD.">
+<!-- 카페·카톡 링크 미리보기 카드 (검색 목적 아님) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="무매헬퍼 by 선비">
+<meta property="og:title" content="무매헬퍼 by 선비 · 사이클별 기록">
+<meta property="og:description" content="무한매수법 v4.0 사이클별 기록 — 사이클마다 시작일·종료일·소요일과 계좌총액·평가금·월환산 수익률·사이클당 MDD.">
+<meta property="og:image" content="https://infinite.smartdailyinfo.com/og-image.png?v=260730b">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.ico?v=1">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=1">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1">
+<script>/* 화면모드: 수동 선택(bttheme 쿠키) 있으면 첫 렌더 전 적용 — 없으면 OS 자동 */
+(function(){var m=document.cookie.match(/(?:^|;\s*)bttheme=(dark|light)/);if(m)document.documentElement.dataset.theme=m[1];})();</script>
+<link rel="stylesheet" href="style.css?v=260905a">
+<style>
+/* 이 페이지 전용: 열이 9개뿐이라 PC에서 화면 전체로 늘어나면 값 사이가 벌어진다 → 내용 폭 기준 */
+@media (min-width:641px){
+  .log{width:auto;min-width:780px}
+  .log th,.log td{padding-left:20px;padding-right:20px}
+}
+/* 모바일: 표 글자 조금 키우기 (14→15.5px, 머리글 12→13px) — 사용자 지정 2026-07-31.
+   넓어진 만큼은 .logwrap의 가로 스크롤이 그대로 흡수한다. */
+@media (max-width:640px){
+  .log{font-size:15.5px}
+  .log th{font-size:13px}
+}
+</style>
+
+
+</head>
+<body>
+<div class="wrap">
+  <header class="pagehdr">
+    <h1>사이클별 기록</h1>
+    <button id="themeBtn" class="themebtn" type="button" aria-label="라이트/다크 모드 전환">🌙</button>
+  </header>
+
+  <div id="msgbox" class="panel" style="padding:24px 16px;text-align:center">서버에서 계산 중…</div>
+
+  <div id="results" hidden>
+    <a class="navbtn green" id="resLink" href="#">← 백테스트 결과</a>
+    <section class="panel">
+      <h2>사이클별 기록 <span class="hint" id="cyHint"></span></h2>
+      <div class="logwrap"><table class="log"><thead><tr id="cyHead"></tr></thead><tbody id="cyBody"></tbody></table></div>
+    </section>
+  </div><!-- #results -->
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+
+// 페이지별 서브도메인 — 전부 같은 컨테이너(localhost:8000)를 역방향 프록시로 나눠 씀.
+// 주소에 파일명 미노출 (2026-07-27) — api.py의 _HOST_ROOT가 도메인 루트를 해당 페이지로 보낸다.
+/* 로컬(uvicorn 직접)에선 호스트 분기가 없어 파일명으로 이동 — site.js와 같은 PROD 감지.
+   운영 동작은 그대로(파일명 미노출, _HOST_ROOT가 서브도메인 루트를 그 파일로 보낸다). */
+const PROD = false;
+const U=(sub,page)=>PROD?`https://${sub}.smartdailyinfo.com/`:page;
+const INPUT_URL=U('infinite','index.html'),
+      RESULTS_URL=U('btresult','results.html');
+$('resLink').href=RESULTS_URL+location.search;
+const P=new URLSearchParams(location.search);
+/* 설정 소스: URL 파라미터(구형 공유링크 호환) 우선, 없으면 부모도메인 쿠키(btp — 메인페이지가 저장). */
+const COOKIE_DOMAIN=location.hostname.endsWith('smartdailyinfo.com')?';domain=.smartdailyinfo.com':'';
+function saveParams(o){ document.cookie='btp='+encodeURIComponent(JSON.stringify(o))+COOKIE_DOMAIN+';path=/;max-age=31536000;samesite=lax'; }
+function loadParams(){ const m=document.cookie.match(/(?:^|;\s*)btp=([^;]*)/); if(!m) return null; try{ return JSON.parse(decodeURIComponent(m[1])); }catch(e){ return null; } }
+const CK=loadParams();
+const gp=k=>{ const v=P.get(k); return (v!=null&&v!=='')?v:(CK&&CK[k]!=null?String(CK[k]):null); };
+const effParams=()=>{ const o={}; ['ticker','seed','div','sell','big','fee','start','pre','end','mode','lt','lcash','lsh','lavg','lrev'].forEach(k=>{ const v=gp(k); if(v!=null) o[k]=v; }); return o; };
+/* '내 상태로 시작'(mode=live): 기준일(start) 장마감 실계좌 스냅샷 → API 내상태로 전달 */
+const liveState=()=>{
+  if(gp('mode')!=='live') return null;
+  const st={T:Number(gp('lt'))||0, 잔금:Number(gp('lcash'))||0, 누적개수:Number(gp('lsh'))||0, 리버스:gp('lrev')==='1'};
+  const av=Number(gp('lavg')); if(st.누적개수>0&&isFinite(av)&&av>0) st.평단=av;
+  return st;
+};
+
+/* ---------- 렌더 ----------
+   서버(serialize.exposed_cycles)가 이미 엑셀 표시형식대로 문자열을 만들어 보낸다 → 여기선 정렬·색만. */
+const signCls=s=>{ const t=String(s||''); return t.startsWith('-')?'down':t.startsWith('+')?'up':''; };
+const num=s=>{ const n=parseFloat(String(s==null?'':s).replace(/[^0-9.\-]/g,'')); return isFinite(n)?n:null; };
+/* 평가금: 직전 사이클보다 줄었으면 파랑, 늘었으면 빨강 (첫 사이클의 기준은 시작 100%) */
+const evalCls=(v,prev)=>{ const c=num(v); if(c==null) return '';
+  const p=(prev==null)?100:prev; return c<p?'down':(c>p?'up':''); };
+const RIGHT=new Set(['계좌총액']);        // 금액만 우측정렬, 나머지는 가운데
+const SIGNED=new Set(['월환산']);         // ± 부호색
+const BLUE=new Set(['계좌 MDD','주가 MDD']); // 낙폭은 파랑
+const EVALP=new Set(['평가금']);          // 직전 사이클 대비 증감색 (동일하면 본문색)
+/* 0.00%는 색 없이 본문색(다크=흰색·라이트=검정) — 월환산·MDD 두 열 (사용자 지정 2026-07-31).
+   '0' · '0.00%' · '-0.00%'(반올림해서 0) 전부 0으로 본다. 값 없음('-')은 종전대로. */
+const isZero=v=>{ const x=num(v); return x!=null&&x===0; };
+function renderCycles(d){
+  if(!d||!d.헤더||!d.행||!d.행.length){
+    $('cyHead').innerHTML=''; $('cyHint').textContent='';
+    $('cyBody').innerHTML='<tr><td class="emptyNote">아직 종료된 사이클이 없습니다</td></tr>';
+    return;
+  }
+  $('cyHint').textContent='총 '+d.행.length+'회 · 사이클 종료(전량매도) 시점 기준';
+  $('cyHead').innerHTML=d.헤더.map(h=>`<th>${h}</th>`).join('');
+  const EVI=d.헤더.indexOf('평가금');      // 직전 행 평가금을 끌어오려면 열 위치가 필요
+  $('cyBody').innerHTML=d.행.map((row,ri)=>'<tr>'+row.map((v,i)=>{
+    const h=d.헤더[i], t=(v==null||v==='')?'-':v;
+    if(BLUE.has(h))   return `<td class="ctr ${isZero(v)?'':'down'}">${t}</td>`;
+    if(SIGNED.has(h)) return `<td class="ctr ${isZero(v)?'':signCls(v)}">${t}</td>`;
+    if(EVALP.has(h))  return `<td class="ctr ${evalCls(v, ri>0?num(d.행[ri-1][EVI]):null)}">${t}</td>`;
+    if(RIGHT.has(h))  return `<td>${t}</td>`;
+    return `<td class="ctr">${t}</td>`;
+  }).join('')+'</tr>').join('');
+}
+
+/* ---------- URL 파라미터 → API 호출 → 렌더 ---------- */
+async function run(){
+  const start=gp('start');
+  if(!start){ $('msgbox').innerHTML=`설정이 없습니다. <a href="${INPUT_URL}">설정으로 돌아가기</a>`; return; }
+  const body={
+    ticker:(gp('ticker')||'SOXL').toUpperCase(),
+    시드:Number(gp('seed'))||20000,
+    분할수:Number(gp('div'))||20,
+    매도목표:(Number(gp('sell'))||20)/100,
+    큰수기준:(Number(gp('big'))||12)/100,
+    수수료율:(Number(gp('fee'))||0)/100,
+    시작일:start,
+    프리장반영:gp('pre')==='1',
+    일자별포함:false,
+  };
+  const _end=gp('end'); if(_end) body.종료일=_end;   // 미지정=데이터 끝까지
+  const _lst=liveState(); if(_lst) body.내상태=_lst;  // 내 상태로 시작 (기준일=start 스냅샷)
+  const _bal=P.get('balance');   // 결과페이지 매매기록에서 수정한 잔금 반영
+  if(_bal){ const bn=Number(String(_bal).replace(/[^0-9.\-]/g,'')); if(isFinite(bn)) body.잔금=bn; }
+  const _sh=P.get('shares');     // 수정한 보유개수(마지막 날짜) 반영
+  if(_sh){ const an=Number(String(_sh).replace(/[^0-9.]/g,'')); if(isFinite(an)&&an>=0) body.누적개수=an; }
+  const _cs=P.get('closes');     // 수정한 종가들(날짜:값,…) 반영
+  if(_cs){ const m={}; _cs.split(',').forEach(s=>{ const i=s.indexOf(':'); if(i>0){ const n=Number(s.slice(i+1)); if(isFinite(n)&&n>0) m[s.slice(0,i)]=n; } }); if(Object.keys(m).length) body.종가수정=m; }
+  try{
+    const r=await fetch('/api/backtest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok){ const err=await r.json().catch(()=>({})); throw new Error(err.detail||('HTTP '+r.status)); }
+    const d=await r.json();
+    saveParams(effParams());   // 성공한 설정을 쿠키에 갱신 (구형 링크로 와도 이후 내부 이동은 쿠키로)
+    renderCycles(d.사이클);
+    $('msgbox').hidden=true; $('results').hidden=false;
+  }catch(e){
+    $('msgbox').innerHTML=`<span class="up">오류: ${e.message}</span> · <a href="${RESULTS_URL+location.search}">결과로 돌아가기</a>`;
+  }
+}
+run();
+</script>
+<script>/* 🌙/☀️ 수동 테마 토글 — bttheme 쿠키(부모도메인)로 전 서브도메인 공유, 미선택 시 OS 자동 */
+(function(){
+  var b=document.getElementById('themeBtn'); if(!b) return;
+  var D=location.hostname.endsWith('smartdailyinfo.com')?';domain=.smartdailyinfo.com':'';
+  var mq=window.matchMedia('(prefers-color-scheme: dark)');
+  function eff(){return document.documentElement.dataset.theme||(mq.matches?'dark':'light');}
+  function paint(){var d=eff()==='dark';b.textContent=d?'☀️':'🌙';b.title=d?'라이트 모드로 전환':'다크 모드로 전환';}
+  b.addEventListener('click',function(){
+    var next=eff()==='dark'?'light':'dark';
+    document.documentElement.dataset.theme=next;
+    document.cookie='bttheme='+next+D+';path=/;max-age=31536000;samesite=lax';
+    paint();
+  });
+  mq.addEventListener('change',paint);
+  paint();
+})();</script>
+<script src="site.js?v=260905a"></script>
+</body>
+</html>

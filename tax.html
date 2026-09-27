@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>무매헬퍼 by 선비 · 연간/월간 손익 · 세금</title>
+<meta name="description" content="무한매수법 v4.0 기간손익 — 연도별·월별 평가금과 실현손익, 양도소득세 추정치.">
+<!-- 카페·카톡 링크 미리보기 카드 (검색 목적 아님) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="무매헬퍼 by 선비">
+<meta property="og:title" content="무매헬퍼 by 선비 · 연간/월간 손익 · 세금">
+<meta property="og:description" content="무한매수법 v4.0 기간손익 — 연도별·월별 평가금과 실현손익, 양도소득세 추정치.">
+<meta property="og:image" content="https://infinite.smartdailyinfo.com/og-image.png?v=260730b">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.ico?v=1">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=1">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1">
+<script>/* 화면모드: 수동 선택(bttheme 쿠키) 있으면 첫 렌더 전 적용 — 없으면 OS 자동 */
+(function(){var m=document.cookie.match(/(?:^|;\s*)bttheme=(dark|light)/);if(m)document.documentElement.dataset.theme=m[1];})();</script>
+<link rel="stylesheet" href="style.css?v=260905a">
+<style>
+/* 이 페이지 전용: 연도·날짜 첫 열은 내용 폭만큼만 (과도한 너비 배정 방지) */
+.log th:first-child,.log td:first-child{width:1%;white-space:nowrap;padding-left:14px;padding-right:14px}
+/* 모바일: (진행중) 힌트는 연도/날짜 아래 줄로 — 첫 칸 폭 최소화 */
+@media (max-width:640px){.log td:first-child .hint{display:block;line-height:1.15;margin-top:1px}}
+/* 모바일: 표 글자 조금 키우기 (14→15.5px, 머리글 12→13px) — 사용자 지정 2026-07-31.
+   3열 표라 360px 화면에도 들어가고, 넘치면 .logwrap 가로 스크롤이 받는다. */
+@media (max-width:640px){
+  .log{font-size:15.5px}
+  .log th{font-size:13px}
+}
+/* PC: 3열짜리 표가 화면 전체로 늘어나 값 사이가 벌어지는 것 방지 — 내용 폭 기준 컴팩트하게 */
+@media (min-width:641px){
+  .log{width:auto;min-width:440px}
+  .log th,.log td{padding-left:26px;padding-right:26px}
+  /* 세금표(width:auto)에선 첫열 1% 트릭이 오히려 표를 화면폭까지 부풀림 → 해제 */
+  .log:has(#taxHead) th:first-child,.log:has(#taxHead) td:first-child{width:auto}
+  /* 연간·월간 평가금 두 표를 양옆 배치 — 월간 왼쪽, 연간 오른쪽 (모바일은 세로 그대로) */
+  .snap2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;margin-bottom:14px}
+  .snap2 .panel{margin-bottom:0}
+  .snap2 .panel:first-child{order:2}   /* 연간 → 오른쪽 */
+  .snap2 .panel:last-child{order:1}    /* 월간 → 왼쪽 */
+  .snap2 .log{width:100%;min-width:0}  /* 반쪽 패널 안에선 패널 폭에 맞춤 */
+}
+</style>
+
+
+</head>
+<body>
+<div class="wrap">
+  <header class="pagehdr">
+    <h1>연간/월간 손익 · 세금</h1>
+    <button id="themeBtn" class="themebtn" type="button" aria-label="라이트/다크 모드 전환">🌙</button>
+  </header>
+
+  <div id="msgbox" class="panel" style="padding:24px 16px;text-align:center">서버에서 계산 중…</div>
+
+  <div id="results" hidden>
+    <a class="navbtn green" id="resLink" href="#">← 백테스트 결과</a>
+    <section class="panel">
+      <h2>연간 손익 · 세금 <span class="hint">당해 연도 실현손익 기준: 세금 22% 적용 (수수료 미반영, 기본공제 250만원 미반영)</span></h2>
+      <div class="logwrap"><table class="log"><thead><tr id="taxHead"></tr></thead><tbody id="taxBody"></tbody></table></div>
+    </section>
+    <div class="snap2">
+      <section class="panel">
+        <h2>연간 평가금 <span class="hint">시작일과 같은 날짜 기준 매년 (휴장이면 직전 거래일)</span></h2>
+        <div class="logwrap"><table class="log"><thead><tr id="yrHead"></tr></thead><tbody id="yrBody"></tbody></table></div>
+      </section>
+      <section class="panel">
+        <h2>월간 평가금 <span class="hint">시작일과 같은 날짜 기준 매달 (휴장이면 직전 거래일)</span></h2>
+        <div class="logwrap"><table class="log"><thead><tr id="moHead"></tr></thead><tbody id="moBody"></tbody></table></div>
+      </section>
+    </div>
+  </div><!-- #results -->
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const money=n=>n==null?'—':'$'+Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const pctSigned=n=>n==null?'—':(n>=0?'+':'')+(n*100).toFixed(2)+'%';   // 증감률 (±)
+const pctEval=n=>n==null?'—':(n*100).toFixed(1)+'%';                    // 평가금 (원금=100%)
+const cls=n=>n>0?'up':n<0?'down':'';
+const yymmdd=s=>{ if(!s)return ''; const p=String(s).split('-'); return p.length<3?s:p[0].slice(2)+'/'+p[1]+'/'+p[2]; };
+
+// 페이지별 서브도메인 — 전부 같은 컨테이너(localhost:8000)를 역방향 프록시로 나눠 씀.
+// 주소에 파일명 미노출 (2026-07-27) — api.py의 _HOST_ROOT가 도메인 루트를 해당 페이지로 보낸다.
+/* 로컬(uvicorn 직접)에선 호스트 분기가 없어 파일명으로 이동 — site.js와 같은 PROD 감지.
+   운영 동작은 그대로(파일명 미노출, _HOST_ROOT가 서브도메인 루트를 그 파일로 보낸다). */
+const PROD = false;
+const U=(sub,page)=>PROD?`https://${sub}.smartdailyinfo.com/`:page;
+const INPUT_URL=U('infinite','index.html'),
+      RESULTS_URL=U('btresult','results.html');
+$('resLink').href=RESULTS_URL+location.search;
+const P=new URLSearchParams(location.search);
+/* 설정 소스: URL 파라미터(구형 공유링크 호환) 우선, 없으면 부모도메인 쿠키(btp — 메인페이지가 저장). */
+const COOKIE_DOMAIN=location.hostname.endsWith('smartdailyinfo.com')?';domain=.smartdailyinfo.com':'';
+function saveParams(o){ document.cookie='btp='+encodeURIComponent(JSON.stringify(o))+COOKIE_DOMAIN+';path=/;max-age=31536000;samesite=lax'; }
+function loadParams(){ const m=document.cookie.match(/(?:^|;\s*)btp=([^;]*)/); if(!m) return null; try{ return JSON.parse(decodeURIComponent(m[1])); }catch(e){ return null; } }
+const CK=loadParams();
+const gp=k=>{ const v=P.get(k); return (v!=null&&v!=='')?v:(CK&&CK[k]!=null?String(CK[k]):null); };
+const effParams=()=>{ const o={}; ['ticker','seed','div','sell','big','fee','start','pre','end','mode','lt','lcash','lsh','lavg','lrev'].forEach(k=>{ const v=gp(k); if(v!=null) o[k]=v; }); return o; };
+/* '내 상태로 시작'(mode=live): 기준일(start) 장마감 실계좌 스냅샷 → API 내상태로 전달
+   (키는 l 접두사 — 매매기록 수정 전달용 shares/balance URL 파라미터와 충돌 방지) */
+const liveState=()=>{
+  if(gp('mode')!=='live') return null;
+  const st={T:Number(gp('lt'))||0, 잔금:Number(gp('lcash'))||0, 누적개수:Number(gp('lsh'))||0, 리버스:gp('lrev')==='1'};
+  const av=Number(gp('lavg')); if(st.누적개수>0&&isFinite(av)&&av>0) st.평단=av;
+  return st;
+};
+
+/* ---------- 렌더 ---------- */
+function renderTax(rows){
+  const showFee=rows.some(r=>Number(r.수수료)>0);   // 수수료율 0이면 열 생략
+  $('taxHead').innerHTML='<th>연도</th><th>연간손익</th><th>세금 (22%)</th>'+(showFee?'<th>연간수수료</th>':'');
+  $('taxBody').innerHTML=rows.map(r=>{
+    const yl=r.확정?r.연도:`${r.연도} <span class="hint">(진행중)</span>`;
+    const tax=money(r.세금);   // 0도 $0.00 — 소수 2자리 통일
+    return `<tr><td class="ctr">${yl}</td><td class="${cls(r.수익)}">${money(r.수익)}</td><td>${tax}</td>`
+      +(showFee?`<td>${money(r.수수료)}</td>`:'')+'</tr>';
+  }).join('');
+}
+/* 평가금 = 직전 스냅샷 대비 증감색: 낮으면 파랑·높으면 빨강, 같으면 본문색 (사용자 지정 2026-07-31).
+   비교는 화면 표시값(소수 1자리)끼리 — 같아 보이는데 색이 붙는 일이 없게. 첫 행은 직전이 없어 무색. */
+const evShown=n=>n==null?null:parseFloat(pctEval(n));
+function renderSnap(list, headId, bodyId){
+  $(headId).innerHTML='<th>날짜</th><th>평가금</th><th>증감률</th>';   // 표기·페이로드 키 모두 '증감률' (2026-08-01 통일)
+  $(bodyId).innerHTML=list.map((r,i)=>{
+    const d=yymmdd(r.날짜)+(r.진행중?' <span class="hint">(진행중)</span>':'');
+    const c=evShown(r.평가금), p=i>0?evShown(list[i-1].평가금):null;
+    const ec=(c==null||p==null)?'':cls(c-p);
+    return `<tr><td class="ctr">${d}</td><td class="ctr ${ec}">${pctEval(r.평가금)}</td><td class="ctr ${cls(r.증감률)}">${pctSigned(r.증감률)}</td></tr>`;
+  }).join('');
+}
+
+/* ---------- URL 파라미터 → API 호출 → 렌더 ---------- */
+async function run(){
+  const start=gp('start');
+  if(!start){ $('msgbox').innerHTML=`설정이 없습니다. <a href="${INPUT_URL}">설정으로 돌아가기</a>`; return; }
+  const body={
+    ticker:(gp('ticker')||'SOXL').toUpperCase(),
+    시드:Number(gp('seed'))||20000,
+    분할수:Number(gp('div'))||20,
+    매도목표:(Number(gp('sell'))||20)/100,
+    큰수기준:(Number(gp('big'))||12)/100,
+    수수료율:(Number(gp('fee'))||0)/100,
+    시작일:start,
+    프리장반영:gp('pre')==='1',
+    일자별포함:false,
+  };
+  const _end=gp('end'); if(_end) body.종료일=_end;   // 미지정=데이터 끝까지
+  const _lst=liveState(); if(_lst) body.내상태=_lst;  // 내 상태로 시작 (기준일=start 스냅샷)
+  const _bal=P.get('balance');   // 결과페이지 매매기록에서 수정한 잔금 반영
+  if(_bal){ const bn=Number(String(_bal).replace(/[^0-9.\-]/g,'')); if(isFinite(bn)) body.잔금=bn; }
+  const _sh=P.get('shares');     // 수정한 누적개수(마지막 날짜) 반영
+  if(_sh){ const an=Number(String(_sh).replace(/[^0-9.]/g,'')); if(isFinite(an)&&an>=0) body.누적개수=an; }
+  const _cs=P.get('closes');     // 수정한 종가들(날짜:값,…) 반영
+  if(_cs){ const m={}; _cs.split(',').forEach(s=>{ const i=s.indexOf(':'); if(i>0){ const n=Number(s.slice(i+1)); if(isFinite(n)&&n>0) m[s.slice(0,i)]=n; } }); if(Object.keys(m).length) body.종가수정=m; }
+  try{
+    const r=await fetch('/api/backtest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok){ const err=await r.json().catch(()=>({})); throw new Error(err.detail||('HTTP '+r.status)); }
+    const d=await r.json(); const pd=d.기간수익||{};
+    saveParams(effParams());   // 성공한 설정을 쿠키에 갱신 (구형 링크로 와도 이후 내부 이동은 쿠키로)
+    renderTax(pd.연간세금||[]);
+    renderSnap(pd.연간||[],'yrHead','yrBody');
+    renderSnap(pd.월간||[],'moHead','moBody');
+    $('msgbox').hidden=true; $('results').hidden=false;
+  }catch(e){
+    $('msgbox').innerHTML=`<span class="up">오류: ${e.message}</span> · <a href="${RESULTS_URL+location.search}">결과로 돌아가기</a>`;
+  }
+}
+run();
+</script>
+<script>/* 🌙/☀️ 수동 테마 토글 — bttheme 쿠키(부모도메인)로 전 서브도메인 공유, 미선택 시 OS 자동 */
+(function(){
+  var b=document.getElementById('themeBtn'); if(!b) return;
+  var D=location.hostname.endsWith('smartdailyinfo.com')?';domain=.smartdailyinfo.com':'';
+  var mq=window.matchMedia('(prefers-color-scheme: dark)');
+  function eff(){return document.documentElement.dataset.theme||(mq.matches?'dark':'light');}
+  function paint(){var d=eff()==='dark';b.textContent=d?'☀️':'🌙';b.title=d?'라이트 모드로 전환':'다크 모드로 전환';}
+  b.addEventListener('click',function(){
+    var next=eff()==='dark'?'light':'dark';
+    document.documentElement.dataset.theme=next;
+    document.cookie='bttheme='+next+D+';path=/;max-age=31536000;samesite=lax';
+    paint();
+  });
+  mq.addEventListener&&mq.addEventListener('change',paint);
+  paint();
+})();</script>
+<script src="site.js?v=260905a"></script>
+</body>
+</html>

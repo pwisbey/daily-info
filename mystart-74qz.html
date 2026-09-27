@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>무매헬퍼 by 선비 · 내 상태로 시작</title>
+<meta name="description" content="무한매수법 v4.0 — 내 계좌 상태(회차 T·잔금·누적개수·평단)를 넣어 오늘 주문과 이후 결과를 계산합니다.">
+<!-- 카페·카톡 링크 미리보기 카드 (검색 목적 아님) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="무매헬퍼 by 선비">
+<meta property="og:title" content="무매헬퍼 by 선비 · 내 상태로 시작">
+<meta property="og:description" content="무한매수법 v4.0 — 내 계좌 상태(회차 T·잔금·누적개수·평단)를 넣어 오늘 주문과 이후 결과를 계산합니다.">
+<meta property="og:image" content="https://infinite.smartdailyinfo.com/og-image.png?v=260730b">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.ico?v=1">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=1">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1">
+<script>/* 화면모드: 수동 선택(bttheme 쿠키) 있으면 첫 렌더 전 적용 — 없으면 OS 자동 */
+(function(){var m=document.cookie.match(/(?:^|;\s*)bttheme=(dark|light)/);if(m)document.documentElement.dataset.theme=m[1];})();</script>
+<link rel="stylesheet" href="style.css?v=260905a">
+<style>/* 이 페이지 전용 (style.css 캐시버스팅 없이 배포하려고 인라인 유지) */
+.livebox{margin-top:10px;border:1.5px dashed #ea580c}
+/* .params 의 display:flex 가 hidden 속성을 이기는 함정 방지 (savebig 가드와 동일) */
+#liveBox[hidden]{display:none}
+/* 상태박스(.params 하단여백 14px)가 위 간격을 주므로 위 0 / 아래 16px — 실행버튼과 균형 */
+.livehint{margin:0 0 16px;font-size:13px;color:var(--muted);line-height:1.65}
+/* T>분할수-1 이면 국면이 리버스로 확정 — 체크 고정(잠금) + 이유 표시 */
+.revlock{font-size:11.5px;font-weight:700;color:#ea580c;white-space:nowrap;margin-left:2px}
+.cafebtn{display:block;width:fit-content;margin:14px auto 0;font-size:16px;font-weight:700;color:#fff;background:#03c75a;text-decoration:none;border-radius:8px;padding:9px 18px}   /* 공식카페 작은 버튼 = 네이버 그린, 가운데 */
+.cafebtn:hover{filter:brightness(1.08)}
+.toggle input:disabled{cursor:default}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="pagehdr">
+    <h1>무매헬퍼 by 선비</h1>
+    <button id="themeBtn" class="themebtn" type="button" aria-label="라이트/다크 모드 전환">🌙</button>
+  </header>
+
+  <div class="modetabs" role="tablist">
+    <button type="button" class="mtab" id="tabBt" role="tab" aria-selected="false">백테스트</button>
+    <button type="button" class="mtab on" id="tabLive" role="tab" aria-selected="true">내 상태로 시작</button>
+  </div>
+
+  <div class="params">
+    <div class="f"><label>종목</label><select id="pTicker"></select></div>
+    <div class="f sm"><label>시작원금 ($)</label><input id="pSeed" inputmode="decimal" value="10,000"></div>
+    <div class="f sm"><label>분할수</label><input id="pDiv" inputmode="numeric" value="20"></div>
+    <div class="f sm"><label>매도목표 (%)</label><input id="pSell" inputmode="decimal" value="20"></div>
+    <div class="f sm"><label>큰수기준 (%)</label><input id="pBig" inputmode="decimal" value="12"></div>
+    <div class="f sm"><label>수수료율 (%)</label><input id="pFee" inputmode="decimal" value="0"></div>
+    <div class="f" id="fStart"><label id="fStartLabel">시작일</label>
+      <div class="cal-wrap"><button type="button" class="calbtn" id="calBtn">날짜 선택</button><div class="cal-pop" id="calPop" hidden></div></div>
+    </div>
+    <div class="f" id="fEnd"><label>종료일</label>
+      <div class="cal-wrap"><button type="button" class="calbtn" id="endBtn">오늘</button><div class="cal-pop" id="endPop" hidden></div></div>
+    </div>
+    <label class="toggle"><input type="checkbox" id="pPre"> 프리장반영</label>
+    <label class="toggle"><input type="checkbox" id="pRemember"> 내 설정값 기억</label>
+  </div>
+
+  <div class="params livebox" id="liveBox" hidden>
+    <div class="f sm"><label>현재 T</label><input id="lT" inputmode="decimal"></div>
+    <div class="f sm"><label>잔금 ($)</label><input id="lCash" inputmode="decimal"></div>
+    <div class="f sm"><label>누적개수 (주)</label><input id="lShares" inputmode="decimal"></div>
+    <div class="f sm"><label>평단 ($)</label><input id="lAvg" inputmode="decimal"></div>
+    <label class="toggle"><input type="checkbox" id="lRev"> 리버스 진행중<span class="revlock" id="revLock" hidden></span></label>
+  </div>
+  <div class="livehint" id="liveHint" hidden>
+    * 빈칸으로 시작 시 시작일 다음 날부터 새사이클 매수를 시작합니다.<br>
+    * 시작일 장마감 시점의 계좌 상태를 입력하세요.<br>
+    * 평단·현재 T는 소수점이 길수록 결과가 정확합니다.
+  </div>
+
+  <button class="runbig" id="runBtn">시작</button>
+  <button class="savebig" id="saveBtn" type="button" hidden>설정값 저장</button>
+  <div style="margin-top:14px;font-size:13.5px;color:var(--muted);text-align:left;line-height:1.7">
+    * 주가 데이터는 구글 파이낸스가 아닌, 야후 파이낸스 기준입니다.<br>
+    * 애프터장(시간외) 가격은 기본 적용되어 있습니다.<br>
+    * 목표가보다 시가가 높을 경우, 지정가 매도는 시가로 이루어집니다.<br>
+    * 백테스트는 액면분할 비율을 반영한 실제 가격으로 계산되며, 센트 단위 오차가 있을 수 있습니다.
+  </div>
+  <a class="cafebtn" href="https://cafe.naver.com/infinitebuying.cafe" target="_blank" rel="noopener">공식카페</a>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+function parseNum(s){return Number(String(s).replace(/[^0-9.]/g,''))||0;}
+
+/* 로컬(uvicorn 직접)에서도 테스트 가능하게 site.js와 동일한 PROD 감지 (프로덕션 동작은 동일) */
+/* 로컬(uvicorn 직접)에선 호스트 분기가 없어 파일명으로 이동 — site.js와 같은 PROD 감지.
+   운영 동작은 그대로(파일명 미노출, _HOST_ROOT가 서브도메인 루트를 그 파일로 보낸다). */
+const PROD = false;
+const U=(sub,page)=>PROD?`https://${sub}.smartdailyinfo.com/`:page;
+const RESULTS_URL=U('mystatus','results.html');   // 내 상태 결과 = 별 도메인·별 제목 (같은 results.html)
+/* 탭 = 도메인 분리 (2026-07-27): 이 페이지는 myinfinite.* 의 '내 상태로 시작' 전용이고,
+   백테스트 탭은 메인(infinite.*)으로 이동한다. 메인은 아직 탭 미적용 — 그쪽은 손대지 않음. */
+const MAIN_URL=U('infinite','index.html');
+
+const PIN_TICKERS=['SOXL','TQQQ','488080'];
+const RECO_SELL={SOXL:20,TQQQ:15,488080:15};
+function applyReco(){ const t=$('pTicker').value; if(RECO_SELL[t]!=null) $('pSell').value=RECO_SELL[t]; }
+
+/* ---------- 커스텀 날짜 선택기 (index.html과 동일) ---------- */
+const WEEKDAYS=['일','월','화','수','목','금','토'];
+const MONTHS=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+const _pad=n=>String(n).padStart(2,'0');
+const _lastDay=(y,m)=>new Date(y,m+1,0).getDate();
+function makeCal(btnId,popId,opts){
+  const btn=$(btnId), pop=$(popId), wrap=btn.parentElement;
+  const st={val:'',min:'',max:'',dates:new Set(),ym:new Set(),yms:[],vy:2020,vm:0};   // ym='YYYY-MM' 수집된 달
+  function sync(){ btn.textContent = st.val || opts.placeholder; }
+  /* 열 때마다 **지금 고른 날짜가 있는 달**을 펴 준다 (사용자 지정 2026-09-13).
+     예전엔 setData 때 딱 한 번만 맞춰서, 값을 나중에 코드로 넣으면(저장된 설정 되채우기 등)
+     화면만 첫 거래월에 남아 달력을 열 때마다 제일 과거 연도가 나왔다. */
+  function seedView(){
+    const seed = st.val || (opts.defaultFirst ? st.min : st.max);
+    if(!seed) return;
+    let key=seed.slice(0,7);
+    if(!st.ym.has(key) && st.yms.length){        // 거래일이 없는 달이면 가장 가까운 거래월로
+      const ix=s=>(+s.slice(0,4))*12+(+s.slice(5,7)-1), t=ix(key);
+      let best='', bd=Infinity;
+      for(const s of st.yms){ const d=Math.abs(ix(s)-t); if(d<bd){ bd=d; best=s; } }
+      if(best) key=best;
+    }
+    st.vy=+key.slice(0,4); st.vm=+key.slice(5,7)-1;
+  }
+  function setData(min,max,dates){
+    st.min=min||''; st.max=max||''; st.dates=new Set(dates||[]); st.list=dates||[];
+    st.ym=new Set(); (dates||[]).forEach(d=>st.ym.add(String(d).slice(0,7)));   // 연·월 드롭다운 비활성 판정용
+    st.yms=[...st.ym].sort();
+    if(!st.val || !st.dates.has(st.val))
+      st.val = opts.defaultFirst ? ((dates&&dates[0])||min||'') : '';
+    seedView();
+    sync();
+  }
+  const _lastTradeDay=()=>(st.dates.has(st.max)?st.max:((st.list&&st.list[st.list.length-1])||''));
+  function render(){
+    const minY=st.min?+st.min.slice(0,4):2000, maxY=st.max?+st.max.slice(0,4):2035;
+    // 수집 안 된 연·월은 선택 불가 (그 달을 골라봐야 날짜가 전부 비활성이라 헛걸음)
+    const hasYM=(y,m)=>st.ym.has(y+'-'+_pad(m+1));
+    const hasY=y=>{ for(let m=0;m<12;m++) if(hasYM(y,m)) return true; return false; };
+    let yopt=''; for(let y=minY;y<=maxY;y++) if(hasY(y)) yopt+=`<option value="${y}"${y===st.vy?' selected':''}>${y}년</option>`;
+    const mopt=MONTHS.map((l,m)=>hasYM(st.vy,m)?`<option value="${m}"${m===st.vm?' selected':''}>${l}</option>`:'').join('');
+    const firstDow=new Date(st.vy,st.vm,1).getDay(), total=_lastDay(st.vy,st.vm);
+    let cells=''; for(let i=0;i<firstDow;i++) cells+='<span class="cal-day empty"></span>';
+    for(let d=1;d<=total;d++){
+      const ymd=`${st.vy}-${_pad(st.vm+1)}-${_pad(d)}`;
+      cells+=`<button type="button" class="cal-day${ymd===st.val?' sel':''}" data-d="${ymd}"${st.dates.has(ymd)?'':' disabled'}>${d}</button>`;
+    }
+    pop.innerHTML=`<div class="cal-head"><button type="button" class="cal-nav" data-step="-1">‹</button>`
+      +`<div class="cal-selects"><select class="cal-select cal-ysel">${yopt}</select><select class="cal-select cal-msel">${mopt}</select></div>`
+      +`<button type="button" class="cal-nav" data-step="1">›</button></div>`
+      +`<div class="cal-grid">${WEEKDAYS.map(w=>`<div class="cal-dow">${w}</div>`).join('')}${cells}</div>`
+      +(opts.allowClear?`<button type="button" class="cal-clearbtn">오늘 (선택 해제)</button>`:'')
+      // 기준일 달력: 어느 달을 보고 있든 한 번에 최신 거래일로 (백테스트 종료일 달력의 '오늘' 버튼과 같은 자리·같은 모양)
+      +(_lastTradeDay()&&opts.allowToday&&opts.allowToday()?`<button type="button" class="cal-clearbtn cal-todaybtn">오늘 (최신 거래일)</button>`:'');
+    pop.querySelector('.cal-ysel').onchange=e=>{
+      st.vy=+e.target.value;
+      if(!hasYM(st.vy,st.vm)){ for(let m=0;m<12;m++) if(hasYM(st.vy,m)){ st.vm=m; break; } }   // 비활성 달이 선택된 채 남지 않게
+      render();
+    };
+    pop.querySelector('.cal-msel').onchange=e=>{st.vm=+e.target.value; render();};
+    pop.querySelectorAll('.cal-nav').forEach(b=>b.onclick=()=>{
+      const step=+b.dataset.step;
+      let y=st.vy, m=st.vm;
+      for(let k=0;k<12*80;k++){            // 수집된 달만 밟는다 — 빈 달은 건너뛰고, 범위 끝이면 그대로
+        m+=step; if(m<0){y--;m=11;} else if(m>11){y++;m=0;}
+        if(y<minY||y>maxY) return;
+        if(hasYM(y,m)){ st.vy=y; st.vm=m; render(); return; }
+      }
+    });
+    pop.querySelectorAll('.cal-day[data-d]').forEach(b=>b.onclick=()=>{ st.val=b.dataset.d; sync(); close(); opts.onPick&&opts.onPick(); });
+    const clr=pop.querySelector('.cal-clearbtn:not(.cal-todaybtn)');
+    if(clr) clr.onclick=()=>{ st.val=''; sync(); close(); opts.onPick&&opts.onPick(); };
+    const tdy=pop.querySelector('.cal-todaybtn');
+    if(tdy) tdy.onclick=()=>{ const d=_lastTradeDay(); if(!d) return; st.val=d; sync(); close(); opts.onPick&&opts.onPick(); };
+  }
+  function open(){
+    seedView();            // 열 때마다 현재 선택값의 달로 (값이 없으면 종료일 달력은 마지막 달)
+    pop.hidden=false; render();
+  }
+  function close(){ pop.hidden=true; }
+  btn.onclick=()=>{ pop.hidden?open():close(); };
+  document.addEventListener('mousedown',e=>{ if(!wrap.contains(e.target)) close(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape')close(); });
+  return { get val(){return st.val;}, set val(v){st.val=v||''; seedView(); sync();}, setData, open };
+}
+const startCal=makeCal('calBtn','calPop',{placeholder:'날짜 선택', defaultFirst:true, allowToday:()=>LIVE,
+  onPick:()=>{ if(LIVE){ LIVE_START=startCal.val; paintLive(); } saveSettings(); }});   // 라이브: 달력=기준일 선택
+const endCal  =makeCal('endBtn','endPop',{placeholder:'오늘',      defaultFirst:false, allowClear:true, onPick:()=>saveSettings()});
+
+async function loadTickers(){
+  try{
+    const r=await fetch('/api/tickers'); const ts=(await r.json()).tickers||[];
+    const top=PIN_TICKERS.filter(t=>ts.includes(t));
+    const rest=ts.filter(t=>!PIN_TICKERS.includes(t)).sort();
+    $('pTicker').innerHTML=[...top,...rest].map(t=>`<option>${t}</option>`).join('')||'<option>SOXL</option>';
+    if(ts.includes('SOXL')) $('pTicker').value='SOXL';
+  }catch(e){ $('pTicker').innerHTML='<option>SOXL</option>'; }
+}
+let RANGE_END='';           // 데이터 최신 거래일 (기준일 기본값)
+let LIVE_START='';          // 스냅샷 기준일 (달력으로 선택 가능, 기본=최신. 프리셋은 저장 날짜 유지)
+let DATES=[];               // 거래일 목록 (기준일 직전 5거래일 확보 검증용)
+async function loadRange(){
+  try{
+    const t=$('pTicker').value||'SOXL';
+    const [rr,dd]=await Promise.all([
+      fetch('/api/range?ticker='+encodeURIComponent(t)).then(r=>r.json()),
+      fetch('/api/dates?ticker='+encodeURIComponent(t)).then(r=>r.json()),
+    ]);
+    startCal.setData(rr.start, rr.end, dd.dates||[]);
+    endCal.setData(rr.start, rr.end, dd.dates||[]);
+    RANGE_END=rr.end||''; DATES=dd.dates||[];
+    if(!LIVE_START || !DATES.includes(LIVE_START)) LIVE_START=RANGE_END;  // 종목 바꾸면 최신으로 재고정
+    paintLive();
+  }catch(e){}
+}
+
+/* ---------- '내 상태로 시작' 토글 ---------- */
+let LIVE=false;
+let NORM_START='';          // 일반 모드의 시작일 백업 (달력을 기준일로 재활용하므로 토글 시 복원)
+let REV_AUTO=false;         // 리버스 체크를 T>분할수-1 규칙이 자동으로 켰는지 — 조건 해제 시 이것만 되돌림 (수동 체크는 보존)
+function setLive(on){
+  const was=LIVE; LIVE=!!on;
+  if(LIVE&&!was){ NORM_START=startCal.val; }
+  if(!LIVE&&was&&NORM_START){ startCal.val=NORM_START; }
+  $('tabLive').classList.toggle('on',LIVE);  $('tabLive').setAttribute('aria-selected',LIVE?'true':'false');
+  $('tabBt').classList.toggle('on',!LIVE);   $('tabBt').setAttribute('aria-selected',LIVE?'false':'true');
+  $('liveBox').hidden=!LIVE; $('liveHint').hidden=!LIVE;
+  $('fStartLabel').textContent='시작일';   // 라이브도 라벨은 백테스트와 같은 '시작일' (사용자 지정 2026-09-03) — 달력 재활용, 거래일만 선택됨
+  $('fEnd').style.display='';   // 종료일은 라이브에서도 지정 가능 (사용자 지정 2026-09-03) — 비워두면 종전처럼 최신 거래일까지
+  $('runBtn').textContent=LIVE?'시작':'백테스트 실행';
+  paintLive();
+}
+function paintLive(){
+  if(!LIVE) return;
+  if(LIVE_START && startCal.val!==LIVE_START) startCal.val=LIVE_START;   // 달력 표시 = 기준일
+  // 입력 순서 자유 — 개수 0 모순(T·평단·리버스 입력)은 실행 시점에 안내 (비활성화 안 함)
+  // (구 '시도액' 조건부 칸은 260727 AT 개정으로 폐지 — T>분할수-1이면 시도액 자체가 공란)
+  // T>분할수-1 = 리버스 진입 조건 그 자체(260802 개정 S식) → 국면 리버스 확정.
+  //   사용자 선택 여지가 없으므로 자동 체크 + 잠금. (T≤분할수-1 이면 해제만 하고 값은 건드리지 않음
+  //   — 이미 진행 중인 리버스는 T가 감쇠해 분할수-1 아래로 내려와도 R종료 전까지 계속 유효하다)
+  const dv=parseNum($('pDiv').value)||20, fixed=parseNum($('lT').value)>dv-1;
+  if(fixed){
+    if(!$('lRev').checked){ $('lRev').checked=true; REV_AUTO=true; }   // 자동으로 켠 것만 표시
+  }else if(REV_AUTO){
+    $('lRev').checked=false; REV_AUTO=false;   // 분할수 상향·T 하향으로 조건 해제 → 자동체크 되돌림
+  }
+  $('lRev').disabled=fixed;
+  $('revLock').hidden=!fixed;
+  $('revLock').textContent='T>'+(dv-1)+' 확정';
+}
+// 백테스트 탭 = 메인 도메인으로 이동 (이 페이지에서 모드 전환은 하지 않는다)
+$('tabBt').onclick=()=>{ saveSettings(); location.href=MAIN_URL; };
+$('tabLive').onclick=()=>{ if(!LIVE){ LIVE_START=RANGE_END;  // 탭 진입 시 기준일=최신으로 스탬프
+  setLive(true); saveSettings(); } };
+['lShares','lT'].forEach(id=>$(id).addEventListener('input',paintLive));
+$('pDiv').addEventListener('input',paintLive);
+$('lRev').addEventListener('change',()=>{ REV_AUTO=false; });   // 손으로 건드린 순간부터는 자동복구 대상 아님
+
+/* ---------- 실행 설정 전달 = 부모도메인 쿠키 (index.html과 동일 퍼널) ---------- */
+const COOKIE_DOMAIN=location.hostname.endsWith('smartdailyinfo.com')?';domain=.smartdailyinfo.com':'';
+function saveParams(o){ document.cookie='btp='+encodeURIComponent(JSON.stringify(o))+COOKIE_DOMAIN+';path=/;max-age=31536000;samesite=lax'; }
+
+function buildParams(){
+  const REQ=[['pSeed','시작원금'],['pDiv','분할수'],['pSell','매도목표'],['pBig','큰수기준']];
+  for(const [id,label] of REQ){
+    if(!String($(id).value).trim()){ alert(label+'은(는) 필수 입력입니다.'); $(id).focus(); return null; }
+  }
+  if(!LIVE && !startCal.val){ alert('시작일은 필수 입력입니다.'); startCal.open(); return null; }
+  if(endCal.val && (LIVE?LIVE_START:startCal.val) && endCal.val<(LIVE?LIVE_START:startCal.val)){
+    alert('종료일이 시작일보다 빠릅니다.'); endCal.open(); return null; }   // 라이브 포함 두 모드 공통
+  const o={
+    ticker:$('pTicker').value||'SOXL',
+    seed:parseNum($('pSeed').value)||10000,
+    div:parseNum($('pDiv').value)||20,
+    sell:parseNum($('pSell').value)||20,
+    big:parseNum($('pBig').value)||12,
+    fee:parseNum($('pFee').value)||0,
+    pre:$('pPre').checked?1:0,
+  };
+  if(LIVE){
+    if(!LIVE_START){ alert('시작일 데이터를 아직 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'); return null; }
+    const di=DATES.indexOf(LIVE_START);
+    if(di>=0&&di<5){ alert('시작일 이전 5거래일 데이터가 필요합니다 (☆지점 5일평균). 더 뒤의 날짜를 선택하세요.'); startCal.open(); return null; }
+    // 내상태 칸을 하나도 안 채웠으면 '무포지션 새 시작'으로 자동 적용 (사용자 지정 2026-07-27):
+    //   T=0 · 잔금=시작원금 · 누적개수=0 · 평단=0 · 리버스 해제. 화면에도 채워 넣어 무엇이 적용됐는지 보이게 한다.
+    //   일부만 채운 경우는 아래 필수값 안내를 그대로 태운다 — 누락을 자동값으로 덮으면 엉뚱한 결과가 나온다.
+    if(['lT','lCash','lShares','lAvg'].every(id=>!String($(id).value).trim()) && !$('lRev').checked){
+      $('lT').value='0'; $('lShares').value='0'; $('lAvg').value='0';
+      $('lCash').value=Number(o.seed).toLocaleString('en-US');   // 잔금 = 시작원금 (표기형식도 동일하게)
+      $('lRev').checked=false; REV_AUTO=false;
+      paintLive();
+    }
+    if(!String($('lCash').value).trim()){ alert('잔금은 필수 입력입니다.'); $('lCash').focus(); return null; }
+    const sh=parseNum($('lShares').value);
+    if(!String($('lShares').value).trim()){ alert('누적개수는 필수 입력입니다 (무포지션이면 0).'); $('lShares').focus(); return null; }
+    // 키는 l 접두사 — 매매기록 수정 전달용 shares/balance URL 파라미터와 충돌 방지
+    o.mode='live'; o.start=LIVE_START;
+    if(endCal.val) o.end=endCal.val;   // 종료일 = 그날까지만 굴린다 (기준일과 같은 날이면 씨앗행 하나 = '내일 주문표')
+    o.lcash=parseNum($('lCash').value); o.lsh=sh;
+    o.lrev=(sh>0 && $('lRev').checked)?1:0;
+    if(sh>0){
+      const t=parseNum($('lT').value), dv=o.div;
+      if(!(t>0)){ alert('현재 T를 입력하세요 (0보다 큰 값, 소수 가능).'); $('lT').focus(); return null; }
+      if(t>dv){ alert('T는 분할수('+dv+') 이하여야 합니다.'); $('lT').focus(); return null; }
+      const av=parseNum($('lAvg').value);
+      if(!(av>0)){ alert('평단은 필수 입력입니다.'); $('lAvg').focus(); return null; }
+      o.lt=t; o.lavg=av;
+    }else{
+      // 무포지션인데 T/평단/리버스가 입력돼 있으면 모순 — 개수 누락일 가능성이 높아 안내
+      if(parseNum($('lT').value)>0 || parseNum($('lAvg').value)>0 || $('lRev').checked){
+        alert('누적개수가 0(무포지션)이면 T·평단·리버스 없이 잔금만으로 계산됩니다.\n보유 중이면 누적개수를 입력하세요.');
+        $('lShares').focus(); return null;
+      }
+      o.lt=0;
+    }
+  }else{
+    o.start=startCal.val;
+    if(endCal.val) o.end=endCal.val;
+  }
+  saveSettings();
+  return o;
+}
+function goResults(){ const o=buildParams(); if(o){ saveParams(o); location.href=RESULTS_URL; } }
+
+/* ---------- 내정보 기억 (이 도메인 전용 키 — 출처가 달라 index와 별도 보관) ---------- */
+function saveSettings(){
+  try{
+    if(!$('pRemember').checked){ localStorage.removeItem('bt_settings_live'); return; }
+    localStorage.setItem('bt_settings_live', JSON.stringify({
+      remember:1, ticker:$('pTicker').value,
+      seed:$('pSeed').value, div:$('pDiv').value, sell:$('pSell').value,
+      big:$('pBig').value, fee:$('pFee').value, pre:$('pPre').checked?1:0,
+      start:startCal.val, end:endCal.val,
+      live:LIVE?1:0, lstart:LIVE_START,
+      lt:$('lT').value, lcash:$('lCash').value, lshares:$('lShares').value,
+      lavg:$('lAvg').value, lrev:$('lRev').checked?1:0, lrevauto:REV_AUTO?1:0,
+    }));
+  }catch(e){}
+}
+function loadSettings(){
+  let s; try{ s=JSON.parse(localStorage.getItem('bt_settings_live')||'null'); }catch(e){ s=null; }
+  if(!s || !s.remember){ $('pRemember').checked=false; return false; }
+  $('pRemember').checked=true;
+  if(s.ticker && [...$('pTicker').options].some(o=>o.value===s.ticker)) $('pTicker').value=s.ticker;
+  if(s.seed!=null) $('pSeed').value=s.seed;
+  if(s.div!=null) $('pDiv').value=s.div;
+  if(s.sell!=null) $('pSell').value=s.sell;
+  if(s.big!=null) $('pBig').value=s.big;
+  if(s.fee!=null) $('pFee').value=s.fee;
+  $('pPre').checked=!!s.pre;
+  if(s.start) startCal.val=s.start;
+  if(s.end) endCal.val=s.end;
+  if(s.lt!=null) $('lT').value=s.lt;
+  if(s.lcash!=null) $('lCash').value=s.lcash;
+  if(s.lshares!=null) $('lShares').value=s.lshares;
+  if(s.lavg!=null) $('lAvg').value=s.lavg;
+  $('lRev').checked=!!s.lrev;
+  REV_AUTO=!!s.lrevauto;                             // 새로고침 후에도 '자동/수동' 구분 유지
+  if(s.lstart) LIVE_START=s.lstart;
+  // 모드는 저장값을 따르지 않는다 — 이 도메인은 '내 상태로 시작' 전용 (아래 __btReady에서 항상 ON).
+  //   구버전에서 live:0으로 저장된 사용자가 백테스트 화면으로 열리는 것을 막는다.
+  return true;
+}
+
+$('runBtn').onclick=goResults;
+$('pRemember').addEventListener('change', saveSettings);
+$('pTicker').addEventListener('change', async ()=>{ applyReco(); LIVE_START=''; await loadRange(); saveSettings(); });
+['pSeed','pDiv','pSell','pBig','pFee','pPre','lT','lCash','lShares','lAvg','lRev'].forEach(id=>$(id).addEventListener('change', saveSettings));
+['pTicker','pSeed','pDiv','pSell','pBig','pFee','lT','lCash','lShares','lAvg'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter')goResults();}));
+
+/* 모바일: 숫자칸을 탭하면 탭 위치와 무관하게 커서를 맨 뒤로 — 값 중간에 끼어 입력되는 사고 방지.
+   focus 순간에만 적용(setTimeout=브라우저가 탭 위치로 캐럿을 놓은 뒤 덮어쓰기).
+   이미 포커스된 칸을 다시 탭하면 원하는 자리로 옮길 수 있다.
+   터치 기기 전용(pointer:coarse) — 마우스는 클릭 지점에 커서를 두는 게 정상. */
+if(window.matchMedia && window.matchMedia('(pointer: coarse)').matches){
+  document.querySelectorAll('.params input[inputmode]').forEach(el=>{
+    el.addEventListener('focus',()=>setTimeout(()=>{
+      const n=el.value.length; try{ el.setSelectionRange(n,n); }catch(e){}
+    },0));
+  });
+}
+
+/* ---------- 프리셋(site.js) 연동 훅 — 내상태(live) 프리셋 지원 표식 포함 ---------- */
+window.__btLive=true;                               // site.js: 이 페이지는 live 프리셋 폼 채우기 가능
+window.__btGetForm=buildParams;
+window.__btSetForm=async p=>{
+  p=p||{};
+  if(p.ticker && $('pTicker').value!==p.ticker && [...$('pTicker').options].some(o=>o.value===p.ticker)){
+    $('pTicker').value=p.ticker; LIVE_START=''; await loadRange();
+  }
+  if(p.seed!=null) $('pSeed').value=Number(p.seed).toLocaleString('en-US');
+  if(p.div!=null)  $('pDiv').value=+p.div;
+  if(p.sell!=null) $('pSell').value=+p.sell;
+  if(p.big!=null)  $('pBig').value=+p.big;
+  if(p.fee!=null)  $('pFee').value=+p.fee;
+  $('pPre').checked=!!+(p.pre||0);
+  if(p.mode==='live'){
+    if(p.start) LIVE_START=p.start;                 // 저장된 스냅샷 기준일 유지 (최신으로 덮지 않음)
+    if(p.lt!=null) $('lT').value=+p.lt;
+    if(p.lcash!=null) $('lCash').value=+p.lcash;
+    if(p.lsh!=null) $('lShares').value=+p.lsh;
+    if(p.lavg!=null) $('lAvg').value=+p.lavg;
+    $('lRev').checked=!!+(p.lrev||0);
+    REV_AUTO=false;                                 // 저장된 프리셋 값 = 의도한 설정 → 수동 취급
+    setLive(true);
+  }else{
+    setLive(false);
+    if(p.start) startCal.val=p.start;
+  }
+  endCal.val=p.end||'';   // 종료일은 두 모드 공통 — 라이브도 지정 가능해졌으므로 프리셋 복원도 공통 (2026-09-03)
+  saveSettings();
+};
+window.__btRun=goResults;
+window.__btReady=(async()=>{ await loadTickers(); const restored=loadSettings(); if(!restored) applyReco(); await loadRange();
+  setLive(true);                                    // 이 도메인은 항상 내 상태로 시작 ON (백테스트는 메인으로 이동)
+})();
+</script>
+<script src="site.js?v=260905a"></script>
+<script>/* 🌙/☀️ 수동 테마 토글 — bttheme 쿠키(부모도메인)로 전 서브도메인 공유, 미선택 시 OS 자동 */
+(function(){
+  var b=document.getElementById('themeBtn'); if(!b) return;
+  var D=location.hostname.endsWith('smartdailyinfo.com')?';domain=.smartdailyinfo.com':'';
+  var mq=window.matchMedia('(prefers-color-scheme: dark)');
+  function eff(){return document.documentElement.dataset.theme||(mq.matches?'dark':'light');}
+  function paint(){var d=eff()==='dark';b.textContent=d?'☀️':'🌙';b.title=d?'라이트 모드로 전환':'다크 모드로 전환';}
+  b.addEventListener('click',function(){
+    var next=eff()==='dark'?'light':'dark';
+    document.documentElement.dataset.theme=next;
+    document.cookie='bttheme='+next+D+';path=/;max-age=31536000;samesite=lax';
+    paint();
+  });
+  mq.addEventListener&&mq.addEventListener('change',paint);
+  paint();
+})();</script>
+</body>
+</html>

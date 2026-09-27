@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>무매헬퍼 by 선비 — 무한매수법 v4.0 백테스트 &amp; 매매표</title>
+<meta name="description" content="무매헬퍼 by 선비 — 프리장·애프터장까지 반영한 무한매수법 v4.0 백테스트 & 매매표. 야후 파이낸스 기준 데이터 매일 업데이트.">
+<!-- 링크 공유 미리보기 카드 (카톡·카페·SNS) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="무매헬퍼 by 선비">
+<meta property="og:title" content="무매헬퍼 by 선비 — 무한매수법 v4.0 백테스트 & 매매표">
+<meta property="og:description" content="무매헬퍼 by 선비 — 프리장·애프터장까지 반영한 무한매수법 백테스트 & 매매표. 야후 파이낸스 기준 데이터 매일 업데이트.">
+<meta property="og:url" content="https://infinite.smartdailyinfo.com/">
+<meta property="og:image" content="https://infinite.smartdailyinfo.com/og-image.png?v=260730b">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.ico?v=1">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=1">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1">
+<script>/* 화면모드: 수동 선택(bttheme 쿠키) 있으면 첫 렌더 전 적용 — 없으면 OS 자동 */
+(function(){var m=document.cookie.match(/(?:^|;\s*)bttheme=(dark|light)/);if(m)document.documentElement.dataset.theme=m[1];})();</script>
+<link rel="stylesheet" href="style.css?v=260905a">
+<style>/* 이 페이지 전용 */
+.cafebtn{display:block;width:fit-content;margin:14px auto 0;font-size:16px;font-weight:700;color:#fff;background:#03c75a;text-decoration:none;border-radius:8px;padding:9px 18px}   /* 공식카페 작은 버튼 = 네이버 그린, 가운데 */
+.cafebtn:hover{filter:brightness(1.08)}</style>
+
+
+</head>
+<body>
+<div class="wrap">
+  <header class="pagehdr">
+    <h1>무매헬퍼 by 선비</h1>
+    <button id="themeBtn" class="themebtn" type="button" aria-label="라이트/다크 모드 전환">🌙</button>
+  </header>
+
+  <!-- 모드 탭 = 페이지 이동 (2026-07-28 도메인 분리). 이 페이지는 백테스트 전용 → 백테스트가 활성. -->
+  <div class="modetabs" role="tablist">
+    <button type="button" class="mtab on" id="tabBt" role="tab" aria-selected="true">백테스트</button>
+    <button type="button" class="mtab" id="tabLive" role="tab" aria-selected="false">내 상태로 시작</button>
+  </div>
+
+  <div class="params">
+    <div class="f"><label>종목</label><select id="pTicker"></select></div>
+    <div class="f sm"><label>시작원금 ($)</label><input id="pSeed" inputmode="decimal" value="10,000"></div>
+    <div class="f sm"><label>분할수</label><input id="pDiv" inputmode="numeric" value="20"></div>
+    <div class="f sm"><label>매도목표 (%)</label><input id="pSell" inputmode="decimal" value="20"></div>
+    <div class="f sm"><label>큰수기준 (%)</label><input id="pBig" inputmode="decimal" value="12"></div>
+    <div class="f sm"><label>수수료율 (%)</label><input id="pFee" inputmode="decimal" value="0"></div>
+    <div class="f"><label>시작일</label>
+      <div class="cal-wrap"><button type="button" class="calbtn" id="calBtn">날짜 선택</button><div class="cal-pop" id="calPop" hidden></div></div>
+    </div>
+    <div class="f"><label>종료일</label>
+      <div class="cal-wrap"><button type="button" class="calbtn" id="endBtn">오늘</button><div class="cal-pop" id="endPop" hidden></div></div>
+    </div>
+    <label class="toggle"><input type="checkbox" id="pPre"> 프리장반영</label>
+    <label class="toggle"><input type="checkbox" id="pRemember"> 내 설정값 기억</label>
+  </div>
+
+  <button class="runbig" id="runBtn">실행</button>
+  <button class="savebig" id="saveBtn" type="button" hidden>설정값 저장</button>
+  <div style="margin-top:14px;font-size:13.5px;color:var(--muted);text-align:left;line-height:1.7">
+    * 주가 데이터는 구글 파이낸스가 아닌, 야후 파이낸스 기준입니다.<br>
+    * 애프터장(시간외) 가격은 기본 적용되어 있습니다.<br>
+    * 목표가보다 시가가 높을 경우, 지정가 매도는 시가로 이루어집니다.<br>
+    * 백테스트는 액면분할 비율을 반영한 실제 가격으로 계산되며, 센트 단위 오차가 있을 수 있습니다.
+  </div>
+  <a class="cafebtn" href="https://cafe.naver.com/infinitebuying.cafe" target="_blank" rel="noopener">공식카페</a>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+function parseNum(s){return Number(String(s).replace(/[^0-9.]/g,''))||0;}
+
+// ★ 결과 페이지 주소. 같은 서버면 그대로. 다른 서브도메인에 둘 거면 절대URL로 바꾸면 됨
+//   파일명 미노출 (2026-07-27): api.py의 _HOST_ROOT가 btresult.…/ 를 results.html로 보낸다.
+//   예: const RESULTS_URL='https://result.내도메인.com/';
+/* 로컬(uvicorn 직접)에선 호스트 분기가 없어 파일명으로 이동 — site.js와 같은 PROD 감지.
+   운영 동작은 그대로(파일명 미노출, _HOST_ROOT가 서브도메인 루트를 그 파일로 보낸다). */
+const PROD = false;
+const U=(sub,page)=>PROD?`https://${sub}.smartdailyinfo.com/`:page;
+const RESULTS_URL=U('btresult','results.html');
+// 내 상태로 시작 = 전용 도메인. 로컬(uvicorn 직접)에선 호스트 분기가 없어 파일명으로.
+const MYSTATE_URL=U('myinfinite','mystart-74qz.html');
+
+const PIN_TICKERS=['SOXL','TQQQ','488080'];          // 드롭다운 상단 고정(나머지 abc순)
+const RECO_SELL={SOXL:20,TQQQ:15,488080:15};          // 종목 선택 시 기본 매도목표(%)
+function applyReco(){ const t=$('pTicker').value; if(RECO_SELL[t]!=null) $('pSell').value=RECO_SELL[t]; }
+
+/* ---------- 커스텀 날짜 선택기 (수집된 거래일만 활성) — 시작일·종료일 공용 팩토리 ---------- */
+const WEEKDAYS=['일','월','화','수','목','금','토'];
+const MONTHS=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+const _pad=n=>String(n).padStart(2,'0');
+const _lastDay=(y,m)=>new Date(y,m+1,0).getDate();
+function makeCal(btnId,popId,opts){   // opts: placeholder / defaultFirst(미선택시 첫 거래일로) / allowClear(해제 버튼) / onPick
+  const btn=$(btnId), pop=$(popId), wrap=btn.parentElement;
+  const st={val:'',min:'',max:'',dates:new Set(),ym:new Set(),yms:[],vy:2020,vm:0};   // ym='YYYY-MM' 수집된 달
+  function sync(){ btn.textContent = st.val || opts.placeholder; }
+  /* 열 때마다 **지금 고른 날짜가 있는 달**을 펴 준다 (사용자 지정 2026-09-13).
+     예전엔 setData 때 딱 한 번만 맞춰서, 값을 나중에 코드로 넣으면(저장된 설정 되채우기 등)
+     화면만 첫 거래월에 남아 달력을 열 때마다 제일 과거 연도가 나왔다. */
+  function seedView(){
+    const seed = st.val || (opts.defaultFirst ? st.min : st.max);
+    if(!seed) return;
+    let key=seed.slice(0,7);
+    if(!st.ym.has(key) && st.yms.length){        // 거래일이 없는 달이면 가장 가까운 거래월로
+      const ix=s=>(+s.slice(0,4))*12+(+s.slice(5,7)-1), t=ix(key);
+      let best='', bd=Infinity;
+      for(const s of st.yms){ const d=Math.abs(ix(s)-t); if(d<bd){ bd=d; best=s; } }
+      if(best) key=best;
+    }
+    st.vy=+key.slice(0,4); st.vm=+key.slice(5,7)-1;
+  }
+  function setData(min,max,dates){
+    st.min=min||''; st.max=max||''; st.dates=new Set(dates||[]);
+    st.ym=new Set(); (dates||[]).forEach(d=>st.ym.add(String(d).slice(0,7)));   // 연·월 드롭다운 비활성 판정용
+    st.yms=[...st.ym].sort();
+    if(!st.val || !st.dates.has(st.val))                       // 무효값 → 시작일=첫 거래일 / 종료일=미지정(끝까지)
+      st.val = opts.defaultFirst ? ((dates&&dates[0])||min||'') : '';
+    seedView();                                                // 종료일 달력은(값 없으면) 마지막 달부터 보여줌
+    sync();
+  }
+  function render(){
+    const minY=st.min?+st.min.slice(0,4):2000, maxY=st.max?+st.max.slice(0,4):2035;
+    // 수집 안 된 연·월은 선택 불가 (그 달을 골라봐야 날짜가 전부 비활성이라 헛걸음)
+    const hasYM=(y,m)=>st.ym.has(y+'-'+_pad(m+1));
+    const hasY=y=>{ for(let m=0;m<12;m++) if(hasYM(y,m)) return true; return false; };
+    let yopt=''; for(let y=minY;y<=maxY;y++) if(hasY(y)) yopt+=`<option value="${y}"${y===st.vy?' selected':''}>${y}년</option>`;
+    const mopt=MONTHS.map((l,m)=>hasYM(st.vy,m)?`<option value="${m}"${m===st.vm?' selected':''}>${l}</option>`:'').join('');
+    const firstDow=new Date(st.vy,st.vm,1).getDay(), total=_lastDay(st.vy,st.vm);
+    let cells=''; for(let i=0;i<firstDow;i++) cells+='<span class="cal-day empty"></span>';
+    for(let d=1;d<=total;d++){
+      const ymd=`${st.vy}-${_pad(st.vm+1)}-${_pad(d)}`;
+      cells+=`<button type="button" class="cal-day${ymd===st.val?' sel':''}" data-d="${ymd}"${st.dates.has(ymd)?'':' disabled'}>${d}</button>`;
+    }
+    pop.innerHTML=`<div class="cal-head"><button type="button" class="cal-nav" data-step="-1">‹</button>`
+      +`<div class="cal-selects"><select class="cal-select cal-ysel">${yopt}</select><select class="cal-select cal-msel">${mopt}</select></div>`
+      +`<button type="button" class="cal-nav" data-step="1">›</button></div>`
+      +`<div class="cal-grid">${WEEKDAYS.map(w=>`<div class="cal-dow">${w}</div>`).join('')}${cells}</div>`
+      +(opts.allowClear?`<button type="button" class="cal-clearbtn">오늘 (선택 해제)</button>`:'');
+    pop.querySelector('.cal-ysel').onchange=e=>{
+      st.vy=+e.target.value;
+      if(!hasYM(st.vy,st.vm)){ for(let m=0;m<12;m++) if(hasYM(st.vy,m)){ st.vm=m; break; } }   // 비활성 달이 선택된 채 남지 않게
+      render();
+    };
+    pop.querySelector('.cal-msel').onchange=e=>{st.vm=+e.target.value; render();};
+    pop.querySelectorAll('.cal-nav').forEach(b=>b.onclick=()=>{
+      const step=+b.dataset.step;
+      let y=st.vy, m=st.vm;
+      for(let k=0;k<12*80;k++){            // 수집된 달만 밟는다 — 빈 달은 건너뛰고, 범위 끝이면 그대로
+        m+=step; if(m<0){y--;m=11;} else if(m>11){y++;m=0;}
+        if(y<minY||y>maxY) return;
+        if(hasYM(y,m)){ st.vy=y; st.vm=m; render(); return; }
+      }
+    });
+    pop.querySelectorAll('.cal-day[data-d]').forEach(b=>b.onclick=()=>{ st.val=b.dataset.d; sync(); close(); opts.onPick&&opts.onPick(); });
+    const clr=pop.querySelector('.cal-clearbtn');
+    if(clr) clr.onclick=()=>{ st.val=''; sync(); close(); opts.onPick&&opts.onPick(); };
+  }
+  function open(){ pop.hidden=false; seedView(); render(); }
+  function close(){ pop.hidden=true; }
+  btn.onclick=()=>{ pop.hidden?open():close(); };
+  document.addEventListener('mousedown',e=>{ if(!wrap.contains(e.target)) close(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape')close(); });
+  return { get val(){return st.val;}, set val(v){st.val=v||''; seedView(); sync();}, setData, open };
+}
+const startCal=makeCal('calBtn','calPop',{placeholder:'날짜 선택', defaultFirst:true,  onPick:()=>saveSettings()});
+const endCal  =makeCal('endBtn','endPop',{placeholder:'오늘',      defaultFirst:false, allowClear:true, onPick:()=>saveSettings()});
+
+async function loadTickers(){
+  try{
+    const r=await fetch('/api/tickers'); const ts=(await r.json()).tickers||[];
+    const top=PIN_TICKERS.filter(t=>ts.includes(t));
+    const rest=ts.filter(t=>!PIN_TICKERS.includes(t)).sort();
+    $('pTicker').innerHTML=[...top,...rest].map(t=>`<option>${t}</option>`).join('')||'<option>SOXL</option>';
+    if(ts.includes('SOXL')) $('pTicker').value='SOXL';   // 기본 종목 = SOXL
+  }catch(e){ $('pTicker').innerHTML='<option>SOXL</option>'; }
+}
+async function loadRange(){
+  try{
+    const t=$('pTicker').value||'SOXL';
+    const [rr,dd]=await Promise.all([
+      fetch('/api/range?ticker='+encodeURIComponent(t)).then(r=>r.json()),
+      fetch('/api/dates?ticker='+encodeURIComponent(t)).then(r=>r.json()),
+    ]);
+    startCal.setData(rr.start, rr.end, dd.dates||[]);   // 달력: 수집된 거래일만 활성
+    endCal.setData(rr.start, rr.end, dd.dates||[]);
+  }catch(e){}
+}
+
+/* ---------- 실행 설정 전달 = 부모도메인 쿠키 (URL에 파라미터 노출 안 함) ----------
+   쿠키가 없는 사람이 결과 URL을 직접 열면 "설정으로 돌아가기" → 메인페이지 경유 유도. */
+const COOKIE_DOMAIN=location.hostname.endsWith('smartdailyinfo.com')?';domain=.smartdailyinfo.com':'';
+function saveParams(o){ document.cookie='btp='+encodeURIComponent(JSON.stringify(o))+COOKIE_DOMAIN+';path=/;max-age=31536000;samesite=lax'; }
+
+/* 실행 → 설정을 쿠키에 담아 결과 페이지로 이동 (주소창은 깨끗하게) */
+function buildParams(){
+  // 설정값 필수 — 빈칸이면 안내 후 중단 (2026-07-25 오너 지정. 수수료율은 예외: 빈칸=0 처리)
+  const REQ=[['pSeed','시작원금'],['pDiv','분할수'],['pSell','매도목표'],['pBig','큰수기준']];
+  for(const [id,label] of REQ){
+    if(!String($(id).value).trim()){ alert(label+'은(는) 필수 입력입니다.'); $(id).focus(); return null; }
+  }
+  if(!startCal.val){ alert('시작일은 필수 입력입니다.'); startCal.open(); return null; }
+  if(endCal.val && endCal.val<startCal.val){ alert('종료일이 시작일보다 빠릅니다.'); endCal.open(); return null; }
+  saveSettings();
+  const o={
+    ticker:$('pTicker').value||'SOXL',
+    seed:parseNum($('pSeed').value)||10000,
+    div:parseNum($('pDiv').value)||20,
+    sell:parseNum($('pSell').value)||20,
+    big:parseNum($('pBig').value)||12,
+    fee:parseNum($('pFee').value)||0,
+    start:startCal.val,
+    pre:$('pPre').checked?1:0,
+  };
+  if(endCal.val) o.end=endCal.val;   // 미지정=끝까지 (생략)
+  return o;
+}
+function goResults(){ const o=buildParams(); if(o){ saveParams(o); location.href=RESULTS_URL; } }
+/* ---------- 내정보 기억 (이 브라우저 localStorage) ---------- */
+function saveSettings(){
+  try{
+    if(!$('pRemember').checked){ localStorage.removeItem('bt_settings'); return; }
+    localStorage.setItem('bt_settings', JSON.stringify({
+      remember:1, ticker:$('pTicker').value,
+      seed:$('pSeed').value, div:$('pDiv').value, sell:$('pSell').value,
+      big:$('pBig').value, fee:$('pFee').value, pre:$('pPre').checked?1:0,
+      start:startCal.val, end:endCal.val,
+    }));
+  }catch(e){}
+}
+function loadSettings(){   // true=복원함
+  let s; try{ s=JSON.parse(localStorage.getItem('bt_settings')||'null'); }catch(e){ s=null; }
+  if(!s || !s.remember){ $('pRemember').checked=false; return false; }
+  $('pRemember').checked=true;
+  if(s.ticker && [...$('pTicker').options].some(o=>o.value===s.ticker)) $('pTicker').value=s.ticker;
+  if(s.seed!=null) $('pSeed').value=s.seed;
+  if(s.div!=null) $('pDiv').value=s.div;
+  if(s.sell!=null) $('pSell').value=s.sell;
+  if(s.big!=null) $('pBig').value=s.big;
+  if(s.fee!=null) $('pFee').value=s.fee;
+  $('pPre').checked=!!s.pre;
+  if(s.start) startCal.val=s.start;   // 저장된 시작일·종료일 (loadRange의 setData가 유효성 확인)
+  if(s.end) endCal.val=s.end;
+  return true;
+}
+
+// 모드 탭: 백테스트=현재 페이지(활성 고정) · 내 상태로 시작=전용 도메인으로 이동
+$('tabLive').onclick=()=>{ saveSettings(); location.href=MYSTATE_URL; };
+$('runBtn').onclick=goResults;
+$('pRemember').addEventListener('change', saveSettings);
+$('pTicker').addEventListener('change', async ()=>{ applyReco(); await loadRange(); saveSettings(); });   // 종목 변경 → 매도목표·시작일 갱신
+['pSeed','pDiv','pSell','pBig','pFee','pPre'].forEach(id=>$(id).addEventListener('change', saveSettings));
+['pTicker','pSeed','pDiv','pSell','pBig','pFee'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter')goResults();}));
+
+/* 모바일: 숫자칸을 탭하면 탭 위치와 무관하게 커서를 맨 뒤로 — 값 중간에 끼어 입력되는 사고 방지.
+   focus 순간에만 적용(setTimeout=브라우저가 탭 위치로 캐럿을 놓은 뒤 덮어쓰기).
+   이미 포커스된 칸을 다시 탭하면 원하는 자리로 옮길 수 있다.
+   터치 기기 전용(pointer:coarse) — 마우스는 클릭 지점에 커서를 두는 게 정상. */
+if(window.matchMedia && window.matchMedia('(pointer: coarse)').matches){
+  document.querySelectorAll('.params input[inputmode]').forEach(el=>{
+    el.addEventListener('focus',()=>setTimeout(()=>{
+      const n=el.value.length; try{ el.setSelectionRange(n,n); }catch(e){}
+    },0));
+  });
+}
+
+/* ---------- 프리셋(site.js) 연동 훅 — 드로어의 '내 설정'이 이 셋으로 폼을 읽고/채우고/실행 ---------- */
+window.__btGetForm=buildParams;                     // 검증 포함 — 실패 시 alert 후 null
+window.__btSetForm=async p=>{
+  p=p||{};
+  if(p.ticker && $('pTicker').value!==p.ticker && [...$('pTicker').options].some(o=>o.value===p.ticker)){
+    $('pTicker').value=p.ticker; await loadRange();  // 달력(거래일)도 해당 종목으로
+  }
+  if(p.seed!=null) $('pSeed').value=Number(p.seed).toLocaleString('en-US');
+  if(p.div!=null)  $('pDiv').value=+p.div;
+  if(p.sell!=null) $('pSell').value=+p.sell;
+  if(p.big!=null)  $('pBig').value=+p.big;
+  if(p.fee!=null)  $('pFee').value=+p.fee;
+  $('pPre').checked=!!p.pre;
+  if(p.start) startCal.val=p.start;
+  endCal.val=p.end||'';
+  saveSettings();
+};
+window.__btRun=goResults;
+window.__btReady=(async()=>{ await loadTickers(); const restored=loadSettings(); if(!restored) applyReco(); await loadRange(); })();
+</script>
+<script src="site.js?v=260905a"></script>
+<script>/* 🌙/☀️ 수동 테마 토글 — bttheme 쿠키(부모도메인)로 전 서브도메인 공유, 미선택 시 OS 자동 */
+(function(){
+  var b=document.getElementById('themeBtn'); if(!b) return;
+  var D=location.hostname.endsWith('smartdailyinfo.com')?';domain=.smartdailyinfo.com':'';
+  var mq=window.matchMedia('(prefers-color-scheme: dark)');
+  function eff(){return document.documentElement.dataset.theme||(mq.matches?'dark':'light');}
+  function paint(){var d=eff()==='dark';b.textContent=d?'☀️':'🌙';b.title=d?'라이트 모드로 전환':'다크 모드로 전환';}
+  b.addEventListener('click',function(){
+    var next=eff()==='dark'?'light':'dark';
+    document.documentElement.dataset.theme=next;
+    document.cookie='bttheme='+next+D+';path=/;max-age=31536000;samesite=lax';
+    paint();
+  });
+  mq.addEventListener&&mq.addEventListener('change',paint);
+  paint();
+})();</script>
+</body>
+</html>

@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>무매헬퍼 by 선비 · 백테스트 결과</title>
+<meta name="description" content="무한매수법 v4.0 백테스트 결과 — 자산곡선·MDD·CAGR과 일자별 매매기록. 종가를 바꿔 재계산할 수 있습니다.">
+<!-- 카페·카톡 링크 미리보기 카드 (검색 목적 아님) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="무매헬퍼 by 선비">
+<meta property="og:title" content="무매헬퍼 by 선비 · 백테스트 결과">
+<meta property="og:description" content="무한매수법 v4.0 백테스트 결과 — 자산곡선·MDD·CAGR과 일자별 매매기록. 종가를 바꿔 재계산할 수 있습니다.">
+<meta property="og:image" content="https://infinite.smartdailyinfo.com/og-image.png?v=260730b">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.ico?v=1">
+<link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=1">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1">
+<script>/* 화면모드: 수동 선택(bttheme 쿠키) 있으면 첫 렌더 전 적용 — 없으면 OS 자동 */
+(function(){var m=document.cookie.match(/(?:^|;\s*)bttheme=(dark|light)/);if(m)document.documentElement.dataset.theme=m[1];})();</script>
+<link rel="stylesheet" href="style.css?v=260905a">
+<script src="chart.js?v=260803f"></script>   <!-- initChart — 비교 페이지와 공용 (본문 인라인 스크립트보다 먼저 로드) -->
+<style>
+/* 매매 기록 표(260729): 남는 폭을 열에 분배하지 않고 각 열이 '자기 열 최장 데이터' 폭만
+   차지하도록 축소. 넘치면 .logwrap이 가로 스크롤.
+   ① width:100% → auto  ② 셀 좌우 패딩 9→6px
+   ③ 수정칸의 min-width:90px 하한 해제 — 짧은 열을 110px로 밀고 있었다. 잔금·보유개수는
+      나머지 행이 평범한 텍스트라 그 행들이 열 폭을 정해준다(입력칸은 width:100%로 따라감).
+   ④ 종가만 예외: 전 행이 입력칸이라 열 폭을 잡아줄 텍스트가 없다. width:100%가 자기 자신을
+      참조해 헤더('종가') 폭까지 무너지므로, 렌더 때 잰 최장 종가 길이(--closew)로 직접 지정. */
+.log{width:auto}
+.log th,.log td{padding-left:6px;padding-right:6px}
+.log .janEdit{min-width:4ch;padding-left:4px;padding-right:4px}
+.log .closeEdit{width:calc(var(--closew,6ch) + 14px)}   /* +14px = 좌우 패딩 4+4 · 테두리 1+1 · 여유 4 */
+/* 현재상태 14칸(260903 현사이클수익률·현금비율 추가): style.css 기본 6열이면 3행째가 2칸만 차서
+   빈칸 4개가 그대로 보인다 → 이 페이지만 7열 = 2행 정확. style.css는 안 건드리므로
+   매매표(.stat 7칸)와 캐시버스팅(?v=)에 영향 없음. 820px 이하는 style.css의 3열/2열 규칙 그대로. */
+@media (min-width:821px){ #stat{grid-template-columns:repeat(7,1fr)} }
+</style>
+
+
+</head>
+<body>
+<div class="wrap">
+  <header class="pagehdr">
+    <a class="backlink" id="backLink" href="index.html">← 설정</a>
+    <h1>백테스트 결과</h1>
+    <button id="themeBtn" class="themebtn" type="button" aria-label="라이트/다크 모드 전환">🌙</button>
+  </header>
+  <!-- 텍스트를 span으로 분리: site.js가 오른쪽에 '설정 저장' 버튼을 붙여도 재렌더에 지워지지 않게 -->
+  <div class="summary" id="summary"><span id="summaryTxt">계산 준비 중…</span></div>
+
+  <div id="msgbox" class="panel" style="padding:24px 16px;text-align:center">서버에서 백테스트 계산 중…</div>
+
+  <div id="results" hidden>
+    <a class="navbtn" id="btLink" href="#">매매표 보기 →</a>
+    <!-- 1) 현재상태 -->
+    <section class="panel">
+      <h2>현재 상태</h2>
+      <div class="stat" id="stat"></div>
+    </section>
+    <!-- 3) 나머지 (매매표는 buytable.html로 분리) -->
+    <div class="cards" id="cards"></div>
+    <!-- PC=한 줄 3열 · 모바일=3행 세로 스택 (.navrow — 2026-08-01) -->
+    <div class="navrow">
+      <a class="navbtn purple" id="taxLink" href="#">연간/월간 손익 · 세금 →</a>
+      <a class="navbtn green" id="cycleLink" href="#">사이클별 기록 →</a>
+      <a class="navbtn blue" id="cmpLink" href="#">설정 비교 →</a>
+    </div>
+    <section class="panel">
+      <!-- 주가 곡선 켜기/끄기 (2026-08-02) — 끄면 세로축이 계좌자산에 맞춰 다시 잡힌다 -->
+      <h2>정규화 자산곡선<span class="hint" id="eqBase" hidden></span><button type="button" class="h2tog" id="eqPxTog" data-on="주가 ON" data-off="주가 OFF" aria-pressed="true" title="주가 곡선을 끄면 세로축이 계좌자산에 맞춰 다시 잡힙니다">주가 ON</button></h2>
+      <div class="chartbox">
+        <div class="chart-readout" id="eqReadout">&nbsp;</div>
+        <div class="chart-canvas" id="eqCanvas" style="height:250px">
+          <svg id="eqChart"></svg>
+          <div class="chart-hit" id="eqHit"></div>
+        </div>
+        <div class="chart-foot">
+          <div class="legend"><span><i style="background:var(--stock)"></i>계좌자산 <b id="eqAcctV" class="legv"></b></span><span><i style="background:var(--acct)"></i>주가 <b id="eqPxV" class="legv"></b></span></div>
+          <div class="chart-zoom" id="eqZoom"></div>
+        </div>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>MDD 비교 <span class="hint">계좌총액 vs 주가</span></h2>
+      <div class="chartbox">
+        <div class="chart-readout" id="ddReadout">&nbsp;</div>
+        <div class="chart-canvas" id="ddCanvas" style="height:180px">
+          <svg id="ddChart"></svg>
+          <div class="chart-hit" id="ddHit"></div>
+        </div>
+        <div class="chart-foot">
+          <div class="legend"><span><i style="background:var(--stock)"></i>계좌총액 <b id="ddAcctV" class="legv"></b></span><span><i style="background:var(--acct)"></i>주가 <b id="ddPxV" class="legv"></b></span></div>
+          <div class="chart-zoom" id="ddZoom"></div>
+        </div>
+      </div>
+    </section>
+    <section class="panel">
+      <h2 class="loghdr">매매 기록 <span class="hint">(종가는 모든 날짜, 잔금·보유개수는 마지막 날짜 수정 가능)</span><button id="sortBtn" class="sortbtn">최신순 ▼</button><button id="recalcBtn" class="gobtn tblbtn recalcbtn" type="button">재계산</button><a id="btLink2" class="gobtn tblbtn" href="#">이 값으로 매매표 →</a></h2>
+      <div class="logwrap"><table class="log"><thead><tr id="logHead"></tr></thead><tbody id="logBody"></tbody></table></div>
+    </section>
+  </div><!-- #results -->
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const money=n=>n==null?'—':'$'+Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});  // 엑셀 #,##0.00
+const price=n=>n==null?'—':'$'+Number(n).toFixed(2);     // 엑셀 #,##0.00
+const price3=n=>n==null?'—':'$'+Number(n).toFixed(3);    // 엑셀 #,##0.000 (평단)
+const pct=n=>n==null?'—':(n*100).toFixed(2)+'%';         // 엑셀 0.00% (양수 + 없음)
+const cls=n=>n>=0?'up':'down';
+const num=n=>n==null?'—':Number(n).toLocaleString();     // 엑셀 #,##0 (정수)
+const gapHtml=g=>g==null?'':`<span class="g ${g>=0?'up':'down'}">${g>=0?'+':''}${Number(g).toFixed(2)}%</span>`;
+const gapHtmlR=g=>g==null?'':`<span class="g ${g>=0?'down':'up'}">${g>=0?'+':''}${Number(g).toFixed(2)}%</span>`;   // 색 반대(+파랑 -빨강)
+const labClass=t=>!t?'k3':t.includes('큰수')?'k1':t==='평단'?'k4':t.includes('★%')?'k2':t.includes('목표')?'k2':'k3';
+const fmtT=t=>t==null?'—':String(Math.round(t*1000)/1000);   // T = 소수 4째자리에서 반올림(=3자리까지) · 뒤 0 생략 — 매매표와 동일
+const pctSigned=n=>n==null?'—':(n>=0?'+':'')+(n*100).toFixed(2)+'%';   // 총수익률 (+/-)
+const yymmdd=s=>{ if(!s)return ''; const p=String(s).split('-'); return p.length<3?s:p[0].slice(2)+'/'+p[1]+'/'+p[2]; };
+const dspan=s=>s?` <span class="dt">(${yymmdd(s)})</span>`:'';   // MDD 최저 날짜 (큰 값 옆 작게)
+const dpar=s=>s?` (${yymmdd(s)})`:'';                            // MDD 최저 날짜 (sub용)
+const phaseCls=p=>p==='전반전'?'ph-red':p==='후반전'?'ph-blue':p==='새사이클'?'ph-orange':p==='리버스'?'ph-green':'';
+
+/* ---------- 현재상태 패널 ---------- */
+function renderState(s){
+  const pc=phaseCls(s.국면);   // 국면색: 전반=빨강·후반=파랑·새사이클=주황·리버스=초록
+  // 현사이클 수익률 = 현사이클 실현손익(BA) / 사이클시작액(AL = 사이클 시작 시점 계좌총액).
+  //   시트 BH(사이클연수익률 = BA/AL/BF*252)와 같은 분모 — 연환산만 뺀 값이다.
+  //   ⚠ 시트 BG('사이클수익률')는 분모가 AZ(사이클당 투입금)라 값이 훨씬 크다. 여긴 계좌총액 기준(사용자 지정 2026-09-03).
+  const cycRet=(s.사이클수익!=null&&s.사이클시작액)?s.사이클수익/s.사이클시작액:null;
+  // 현금비율 = 잔금 / 계좌총액. 계좌총액은 이 패널의 종가로 잡는다(손계산이 맞게).
+  //   ⚠ 일자별 표·사이클 페이지의 '계좌총액'(시트 BJ)은 고가평가라 분모가 조금 다르다 — 사용자 지정 2026-09-03.
+  const acct=(s.잔금!=null&&s.누적개수!=null&&s.종가!=null)?s.잔금+s.누적개수*s.종가:null;
+  const cashRate=acct?s.잔금/acct:null;
+  const cells=[
+    // 국면+사이클 카드 통합 — 내상태 모드의 주입 첫 사이클은 번호 미상('-차', 2026-07-27)
+    {k:(s.사이클번호!=null?s.사이클번호:'-')+'차 사이클', v:s.국면, phase:1, c:pc},
+    {k:'현재 T', v:`${fmtT(s.회차T)}<span style="color:var(--ink)"> / ${s.분할수}</span>`, c:pc},   // '/ 분할수'는 본문색(다크=흰색·라이트=검정) — 흰색 고정은 라이트에서 안 보임
+    {k:'1+★%', v:s['1+★%']!=null?(Number(s['1+★%'])*100).toFixed(2)+'%':'—', c:pc},   // 색 = '현재 T'와 동일한 국면색 (사용자 지정 2026-07-28)
+    {k:'종가날짜', v:yymmdd(s.종가날짜)},
+    {k:'종가', v:price(s.종가)},
+    {k:'평단', v:price3(s.평단)+gapHtmlR(s.평단갭)},
+    {k:'매매개수', v:s.오늘매수개수==null?'—':(s.오늘매수개수>0?'+':'')+num(Math.round(s.오늘매수개수)), c:s.오늘매수개수>0?'up':s.오늘매수개수<0?'down':''},   // 매수=빨강 · 매도=파랑 · 기록없음(내상태 씨앗)=—
+    {k:'보유개수', v:num(Math.round(s.누적개수))},
+    {k:'잔금', v:money(s.잔금)},
+    {k:'현사이클 수익률', v:pctSigned(cycRet), c:cycRet!=null?cls(cycRet):''},
+    {k:'현금비율', v:pct(cashRate)},
+    {k:'사이클시작', v:s.사이클시작일?yymmdd(s.사이클시작일):'—'},   // 계산 불가(내상태 첫 사이클)='-'
+    {k:'현사이클 실현손익', v:money(s.사이클수익), c:s.사이클수익!=null?cls(s.사이클수익):''},
+    {k:'현보유수익률', v:pct(s.현보유수익), c:cls(s.현보유수익)},
+  ];
+  $('stat').innerHTML=cells.map(c=>
+    `<div class="s${c.phase?' phaseCell':''}"><div class="k">${c.k}</div><div class="v ${c.c||''}">${c.v}</div></div>`).join('');
+}
+
+/* ---------- 매수표 (현재 국면 1개) ---------- */
+function renderBuytable(bt){
+  $('btPhase').textContent=bt.국면;
+  $('budget').textContent='매수시도액 '+money(bt.예산);
+  const buy=bt.매수점||[], sell=bt.매도점||[];
+  $('buyBody').innerHTML=buy.length?buy.map(p=>
+    `<tr><td>${gapHtml(p.갭)}</td><td class="colHead"><span class="lbl ${labClass(p.라벨)}">${p.라벨}</span></td><td>${price(p.가격)}</td><td>${num(Math.round(p.수량))}</td></tr>`).join('')
+    :`<tr><td colspan="4" class="emptyNote">리버스 진입일 — 매수 없음</td></tr>`;   // 시트 260727(2): 진입 첫날 매수 공란
+  if(sell.length){
+    $('sellBody').innerHTML=sell.map(p=>
+      `<tr><td class="colHead"><span class="lbl ${labClass(p.라벨)}">${p.라벨}</span></td><td>${price(p.가격)}</td><td>${num(Math.round(p.수량))}</td><td>${gapHtml(p.갭)}</td></tr>`).join('');
+    $('sellCap').textContent = bt.국면==='리버스' ? (sell[0].라벨==='MOC'?'진입일 MOC 1/10':'★% 1/10') : '★% 1/4 + 목표 3/4';
+  }else{
+    $('sellBody').innerHTML=`<tr><td colspan="4" class="emptyNote">새 사이클 — 매도점 없음 (보유 0)</td></tr>`;
+    $('sellCap').textContent='';
+  }
+}
+
+/* ---------- 요약 카드 ---------- */
+function renderCards(sm){
+  const tot=(sm.최종평가율!=null)?sm.최종평가율-1:null;
+  const cards=[
+    {k:'MDD(계좌)', v:pct(sm.MDD_계좌)+dspan(sm.MDD_계좌_날짜), c:'down', sub:'주가 <b class="down">'+pct(sm.MDD_주가)+'</b>'+dpar(sm.MDD_주가_날짜)},
+    {k:'CAGR', v:pct(sm.CAGR), c:cls(sm.CAGR), sub:`${yymmdd(sm.시작일)}~${yymmdd(sm.종료일)}`},
+    // 라이브는 평가금 기준액이 시드가 아니라 '시작시점 원가'(잔금+평단×보유개수) — 분모 이름도 그대로 (2026-09-03)
+    {k:'총 수익률', v:pctSigned(tot), c:cls(tot), sub:liveState()?'계좌총액 / 시작시점 원가 - 1':'계좌총액 / 원금 - 1'},
+    {k:'누적 실현손익', v:money(sm.수익누적), c:cls(sm.수익누적), sub:`${sm.기간일수}거래일`},
+  ];
+  $('cards').innerHTML=cards.map(c=>
+    `<div class="card"><div class="k">${c.k}</div><div class="v ${c.c}">${c.v}</div><div class="sub">${c.sub}</div></div>`).join('');
+}
+
+/* ---------- 일자별 표 ---------- */
+const cell=v=>{
+  if(v==null||v==='') return '';               // 빈값은 전부 빈칸 (구버전은 - 표시)
+  if(typeof v==='number') return v.toLocaleString(undefined,{maximumFractionDigits:4});
+  return v;
+};
+/* 매매개수 열만 양수에 + 를 붙인다 (2026-08-02 사용자 지정) — 매수/매도 방향이 한눈에 보이게.
+   현재상태 카드 '매매개수'와 같은 규칙. 서버 문자열(#,##0)은 시트 표시형식 그대로 두고 화면에서만 가공. */
+const cellPlus=v=>{
+  const s=cell(v); if(s==='') return '';
+  const num=parseFloat(String(v).replace(/,/g,''));
+  return (isFinite(num) && num > 0) ? '+' + s : s;
+};
+let _daily=null, _dailyDesc=true, _janVal=null, _amVal=null, _closeEdits={}, _origClose=null;   // desc=최신→과거(기본) / 수정한 최신 잔금·누적개수 / {ISO날짜:종가} 수정맵 / 원본 종가맵(첫 로드 스냅샷)
+const isoDate=s=>{ const p=String(s||'').split('/'); return p.length===3?'20'+p[0]+'-'+p[1]+'-'+p[2]:String(s||''); };   // '26/07/21'→'2026-07-21'
+const numOf=s=>parseFloat(String(s??'').replace(/[^0-9.\-]/g,''));
+function renderDaily(daily){
+  if(daily!==undefined) _daily=daily;
+  const d=_daily;
+  if(!d||!d.헤더){ $('logHead').innerHTML=''; $('logBody').innerHTML=`<tr><td class="emptyNote">일자별 데이터 없음</td></tr>`; return; }
+  $('logHead').innerHTML=d.헤더.map(h=>`<th>${(h||'').replace(/\n/g,'<br>')}</th>`).join('');
+  const ctrCols=new Set();
+  const CTR=new Set(['종료','리버스','종료/리버스','RV','사이클','보유개수','매매개수','소요일','소요거래일','사이클수익률','사이클연수익률']);   // 가운데 정렬 열 (공백·줄바꿈 무시 비교)
+  // 평단·목표/R목표의 빈값은 '-'가 아니라 빈칸 (260729 사용자 지정) — cell()이 알아서 ''로 낸다
+  d.헤더.forEach((h,i)=>{ if(CTR.has(String(h||'').replace(/\s+/g,''))) ctrCols.add(i); });
+  const janIdx=d.헤더.indexOf('잔금'), closeIdx=d.헤더.indexOf('종가'), dateIdx=d.헤더.indexOf('날짜'), amIdx=d.헤더.indexOf('보유\n개수');
+  const avgIdx=d.헤더.indexOf('평단');   // 투영행(맨 끝 다음 거래일) 평단은 '-' 대신 공란
+  const trdIdx=d.헤더.indexOf('매매\n개수');   // 양수(매수)면 + 를 붙여 표시
+  // 잔금·누적개수 수정칸 = 종가가 있는 마지막 '데이터' 행 (맨 끝의 다음 거래일 투영행 제외)
+  let latestRow=null;
+  for(let r=d.행.length-1;r>=0;r--){ const cv=d.행[r][closeIdx]; if(cv!=null&&cv!==''){ latestRow=d.행[r]; break; } }
+  // 종가 열 최장 길이 → 입력칸 폭(--closew). 전 행이 입력칸이라 CSS만으로는 열이 안 잡힌다.
+  let closeCh=4;
+  if(closeIdx>=0) for(const r of d.행){ const s=r[closeIdx]; if(s!=null&&s!=='') closeCh=Math.max(closeCh,String(s).length); }
+  document.querySelector('.log').style.setProperty('--closew', closeCh+'ch');
+  const rows=_dailyDesc?[...d.행].reverse():d.행;
+  $('logBody').innerHTML=rows.map(row=>{
+    const dISO=dateIdx>=0?isoDate(row[dateIdx]):'';
+    const hasClose=row[closeIdx]!=null&&row[closeIdx]!=='';
+    return '<tr>'+row.map((v,i)=>{
+      if(i===janIdx && row===latestRow){ const iv=_janVal!=null?_janVal:(v??''); return `<td class="janCell"><input class="janEdit" data-k="jan" inputmode="decimal" value="${String(iv).replace(/"/g,'&quot;')}"></td>`; }
+      if(i===amIdx && row===latestRow){ const iv=_amVal!=null?_amVal:(v??''); return `<td class="janCell"><input class="janEdit ctrEdit" data-k="am" inputmode="numeric" value="${String(iv).replace(/"/g,'&quot;')}"></td>`; }
+      if(i===closeIdx && dISO && hasClose){ const ed=_closeEdits[dISO]; const iv=ed!=null?ed:(v??''); const ov=(_origClose&&_origClose[dISO]!=null)?_origClose[dISO]:(v??''); return `<td class="janCell"><input class="janEdit closeEdit${ed!=null?' edited':''}" data-d="${dISO}" data-orig="${String(ov).replace(/"/g,'&quot;')}" inputmode="decimal" value="${String(iv).replace(/"/g,'&quot;')}"></td>`; }
+      if(i===avgIdx&&!hasClose) return '<td class="ctr"></td>';   // 최신 줄(다음 거래일 투영행) 평단 = 공란 (사용자 지정 2026-07-28)
+      return `<td${ctrCols.has(i)?' class="ctr"':''}>${i===trdIdx?cellPlus(v):cell(v)}</td>`;
+    }).join('')+'</tr>';
+  }).join('');
+}
+/* 모바일: 수정칸(잔금·보유개수·종가)을 탭하면 커서를 맨 뒤로 — 설정 페이지와 동일 규칙.
+   수정칸은 재렌더마다 새로 생기므로 위임으로 건다(focus는 버블링 안 함 → focusin). */
+if(window.matchMedia && window.matchMedia('(pointer: coarse)').matches){
+  $('logBody').addEventListener('focusin', e=>{
+    const t=e.target;
+    if(!t.classList || !t.classList.contains('janEdit')) return;
+    setTimeout(()=>{ const n=t.value.length; try{ t.setSelectionRange(n,n); }catch(_){} },0);
+  });
+}
+$('logBody').addEventListener('input', e=>{   // 위임 리스너 (재렌더에도 유지)
+  const t=e.target;
+  if(!t.classList || !t.classList.contains('janEdit')) return;
+  if(t.dataset.d){                            // 종가 수정칸 (아무 날짜나)
+    const nv=numOf(t.value), ov=numOf(t.dataset.orig);
+    if(t.value.trim()==='' || !isFinite(nv) || nv<=0 || nv===ov){ delete _closeEdits[t.dataset.d]; t.classList.remove('edited'); }
+    else{ _closeEdits[t.dataset.d]=t.value; t.classList.add('edited'); }
+  }else if(t.dataset.k==='am'){ _amVal=t.value; }   // 누적개수 수정칸 (마지막 날짜)
+  else{ _janVal=t.value; }                    // 잔금 수정칸 (마지막 날짜)
+  setBtParams();
+});
+function setBtParams(){   // 수정한 잔금·누적개수·종가들을 매매표·세금 페이지 링크에 실어줌
+  const p=new URLSearchParams(location.search);
+  const bn=numOf(_janVal);
+  if(isFinite(bn)) p.set('balance', bn); else p.delete('balance');
+  const av=numOf(_amVal);
+  if(isFinite(av)&&av>=0) p.set('shares', av); else p.delete('shares');
+  const parts=Object.entries(_closeEdits).map(([d,v])=>{ const n=numOf(v); return (isFinite(n)&&n>0)?d+':'+n:null; }).filter(Boolean);
+  if(parts.length) p.set('closes', parts.join(',')); else p.delete('closes');
+  const href=BUYTABLE_URL+'?'+p.toString();
+  $('btLink').href=href; if($('btLink2')) $('btLink2').href=href;
+  $('taxLink').href=TAX_URL+'?'+p.toString();
+  $('cycleLink').href=CYCLE_URL+'?'+p.toString();
+  $('cmpLink').href=COMPARE_URL+'?'+p.toString();
+}
+function toggleDailySort(){
+  _dailyDesc=!_dailyDesc;
+  $('sortBtn').textContent=_dailyDesc?'최신순 ▼':'과거순 ▲';
+  renderDaily();
+}
+
+/* 차트 컴포넌트(initChart)는 chart.js로 분리 — 결과·비교 두 페이지 공용 (2026-08-01) */
+let _eqC=null, _ddC=null;
+function renderCharts(ch){
+  const dates=ch.날짜;
+  const norm=a=>{ const b=a[0]||1; return a.map(v=>v/b); };   // 시작=1 정규화
+  /* '내 상태로 시작'(사용자 지정 2026-09-03): 두 곡선의 100% 기준을 **시작시점 평단**으로 맞춘다.
+     · 계좌자산 = 서버 자산곡선 그대로. 이 모드의 Q는 이미 시작원가(잔금+평단×보유개수) 기준이라
+       첫 점이 100%가 아니라 '들고 있던 평가손익'만큼 위/아래에서 출발한다.
+       (자기 첫값으로 다시 정규화하면 그 손익이 도로 지워지므로 여기선 norm을 태우지 않는다)
+     · 주가 = 분할조정가 ÷ ch.주가기준(= 평단의 분할조정가). 보유가 없으면(처음부터 시작) 서버가
+       주가기준을 안 보내므로 종전대로 시작=1. 일반 백테스트도 종전과 완전히 동일. */
+  const COSTBASE=!!liveState();
+  const eq=COSTBASE?ch.자산곡선.slice():norm(ch.자산곡선);
+  const px=ch.주가기준?ch.주가곡선.map(v=>v/ch.주가기준):norm(ch.주가곡선);
+  const eqb=$('eqBase');
+  eqb.hidden=!ch.주가기준;
+  if(ch.주가기준) eqb.textContent='100% = 시작시점 평단';
+  if(!_eqC){
+    _eqC=initChart('eq',{baseline:1,log:true,fmt:v=>(v*100).toFixed(2)+'%',fmtAxis:v=>(v*100).toFixed(0)+'%'});
+    _eqC.bindToggle($('eqPxTog'),'주가');   // 제목 줄의 [주가 ON/OFF] 버튼 (끈 상태는 재계산해도 유지)
+  }
+  _eqC.setData(dates,[
+    {name:'계좌자산',color:'var(--stock)',values:eq},
+    {name:'주가',color:'var(--acct)',values:px}]);
+  const ddA=ch.계좌드로다운, ddS=ch.주가드로다운;
+  if(!_ddC)_ddC=initChart('dd',{fmt:pct,fmtAxis:v=>(v*100).toFixed(0)+'%'});
+  _ddC.setData(dates,[
+    {name:'계좌',color:'var(--stock)',values:ddA},
+    {name:'주가',color:'var(--acct)',values:ddS}]);   // 위 차트와 동일하게 계좌 먼저 (범례·크로스헤어 순서 통일)
+  // 범례 마지막값 % (PC 전용 — .legv는 모바일에서 숨김, 두 줄 방지)
+  const L=a=>a&&a.length?a[a.length-1]:null;
+  const setV=(id,txt,c)=>{ const e=$(id); e.textContent=txt; e.className='legv '+(c||''); };
+  setV('eqAcctV',(L(eq)*100).toFixed(2)+'%', L(eq)>=1?'up':'down');
+  setV('eqPxV',(L(px)*100).toFixed(2)+'%', L(px)>=1?'up':'down');
+  setV('ddAcctV',pct(L(ddA)), cls(L(ddA)));
+  setV('ddPxV',pct(L(ddS)), cls(L(ddS)));
+}
+
+/* ---------- URL 파라미터 → API 호출 → 렌더 ---------- */
+// ★ 설정 페이지 주소 (다른 서브도메인이면 절대URL로): 예 'https://input.내도메인.com/'
+// 페이지별 서브도메인 — 전부 같은 컨테이너(localhost:8000)를 역방향 프록시로 나눠 씀.
+// 주소에 파일명 미노출 (2026-07-27) — api.py의 _HOST_ROOT가 도메인 루트를 해당 페이지로 보낸다.
+//   끝의 '/'는 유지: 뒤에 '?…'를 붙여 쓰는 곳이 있어서 슬래시가 없으면 주소가 어색해진다.
+/* '내 상태 결과'(mystatus.*) = 이 파일 그대로, 제목만 다름 (2026-07-27 도메인 분리).
+   페이지를 복사하지 않는 이유: 결과 화면 수정이 두 곳으로 갈라져 조용히 어긋나는 것을 막는다.
+   되돌아가는 곳도 설정 페이지가 아니라 내 상태 페이지(myinfinite)이고, 재계산도 이 도메인에 머문다. */
+const IS_MYSTATUS=location.hostname.split('.')[0]==='mystatus';
+/* 로컬(uvicorn 직접)에선 호스트 분기가 없어 파일명으로 이동 — site.js와 같은 PROD 감지.
+   운영 동작은 그대로(파일명 미노출, _HOST_ROOT가 서브도메인 루트를 그 파일로 보낸다). */
+const PROD = false;
+const U=(sub,page)=>PROD?`https://${sub}.smartdailyinfo.com/`:page;
+const INPUT_URL=IS_MYSTATUS?U('myinfinite','mystart-74qz.html'):U('infinite','index.html'),
+      BUYTABLE_URL=U('bttable','buytable.html'),
+      TAX_URL=U('bttax','tax.html'),
+      CYCLE_URL=U('btcycle','cycle.html'),
+      COMPARE_URL=U('btcompare','compare.html');   // 설정 비교
+// 재계산 결과를 띄울 페이지 — 같은 results.html(모든 상태가 URL 파라미터라 어디서든 동일 렌더).
+const RECALC_URL=IS_MYSTATUS?U('mystatus','results.html'):U('recalc','results.html');
+if(IS_MYSTATUS){
+  document.title='무매헬퍼 by 선비 · 내 상태 결과';
+  const _h=document.querySelector('.pagehdr h1'); if(_h) _h.textContent='내 상태 결과';
+  // 뒤로가기 글자는 '← 설정' 그대로 둔다 (사용자 지정 2026-08-02) — 가는 곳이 내 상태의 설정 페이지라 뜻이 같다
+}
+$('backLink').href=INPUT_URL;
+$('btLink').href=BUYTABLE_URL+location.search;
+if($('btLink2')) $('btLink2').href=BUYTABLE_URL+location.search;
+$('taxLink').href=TAX_URL+location.search;
+$('cycleLink').href=CYCLE_URL+location.search;
+$('cmpLink').href=COMPARE_URL+location.search;
+const P=new URLSearchParams(location.search);
+/* 설정 소스: URL 파라미터(구형 공유링크 호환) 우선, 없으면 부모도메인 쿠키(btp — 메인페이지가 저장).
+   쿠키·파라미터 둘 다 없으면 "설정으로 돌아가기" → 메인 경유 유도. */
+const COOKIE_DOMAIN=location.hostname.endsWith('smartdailyinfo.com')?';domain=.smartdailyinfo.com':'';
+function saveParams(o){ document.cookie='btp='+encodeURIComponent(JSON.stringify(o))+COOKIE_DOMAIN+';path=/;max-age=31536000;samesite=lax'; }
+function loadParams(){ const m=document.cookie.match(/(?:^|;\s*)btp=([^;]*)/); if(!m) return null; try{ return JSON.parse(decodeURIComponent(m[1])); }catch(e){ return null; } }
+const CK=loadParams();
+const gp=k=>{ const v=P.get(k); return (v!=null&&v!=='')?v:(CK&&CK[k]!=null?String(CK[k]):null); };
+const effParams=()=>{ const o={}; ['ticker','seed','div','sell','big','fee','start','pre','end','mode','lt','lcash','lsh','lavg','lrev'].forEach(k=>{ const v=gp(k); if(v!=null) o[k]=v; }); return o; };
+/* '내 상태로 시작'의 설정 비교 — **'처음부터 시작'(보유개수 0)인 경우만** 연다 (사용자 지정 2026-08-01).
+   ① 포지션이 든 스냅샷(T·평단·보유개수)은 그 분할수로 굴려 만든 상태라 분할수를 갈아끼우면 뜻이 없다.
+      보유개수 0이면 주입되는 게 잔금뿐이라 분할수에 묶인 값이 없어 조합을 바꿔도 성립한다.
+   ② 이 모드는 기준일 **다음날부터** 굴리므로 기준일이 최신 거래일이면 곡선이 점 하나 = 비교 불가
+      → 그 경우 버튼을 감춘다(기준일을 과거로 옮기면 나타남). 서버도 같은 조건을 422로 막는다. */
+const IS_LIVE=IS_MYSTATUS||gp('mode')==='live';
+$('cmpLink').hidden=IS_LIVE;                  // 응답을 받아 봐야 알 수 있어 일단 감췄다가
+function syncCmpLink(d){                      // run() 성공 시 조건을 따져 다시 켠다
+  if(!IS_LIVE){ $('cmpLink').hidden=false; return; }
+  const lst=liveState();
+  $('cmpLink').hidden=!(lst && Number(lst.누적개수)===0 && ((d&&d.차트&&d.차트.날짜||[]).length>=2));
+}
+/* ---------- 프리셋(site.js) 연동 훅 — 결과 화면에서 '지금 이 설정'을 그대로 저장 ----------
+   백테스트·내상태 구분 없이 effParams()가 실행에 쓰인 설정 전부(mode·l* 포함)를 갖고 있으므로 그대로 넘긴다.
+   단 gp()가 String()이라 값이 문자열 → 설정 페이지에서 저장한 프리셋과 타입을 맞춰 숫자로 정규화.
+   재계산 뷰의 편집값(종가수정·잔금·누적개수)은 설정이 아니라 일회성 what-if → 저장 대상 아님. */
+window.__btGetForm=()=>{
+  const e=effParams();
+  if(!e.start){ alert('저장할 설정이 없습니다.'); return null; }
+  const NUM=['seed','div','sell','big','fee','lt','lcash','lsh','lavg'],
+        FLAG=['pre','lrev'], LIVEK=['mode','lt','lcash','lsh','lavg','lrev'];
+  const live=e.mode==='live', o={};
+  Object.keys(e).forEach(k=>{
+    if(!live && LIVEK.includes(k)) return;            // 일반 모드 프리셋에 내상태 키를 남기지 않음
+    o[k]=NUM.includes(k)?(Number(e[k])||0):FLAG.includes(k)?(e[k]==='1'?1:0):e[k];
+  });
+  return o;
+};
+/* '내 상태로 시작'(mode=live): 기준일(start) 장마감 실계좌 스냅샷 → API 내상태로 전달
+   (키는 l 접두사 — 매매기록 수정 전달용 shares/balance URL 파라미터와 충돌 방지) */
+const liveState=()=>{
+  if(gp('mode')!=='live') return null;
+  const st={T:Number(gp('lt'))||0, 잔금:Number(gp('lcash'))||0, 누적개수:Number(gp('lsh'))||0, 리버스:gp('lrev')==='1'};
+  const av=Number(gp('lavg')); if(st.누적개수>0&&isFinite(av)&&av>0) st.평단=av;
+  return st;
+};
+// 재계산 뷰로 넘어온 수정값 시딩 (closes=날짜:값,… / balance=잔금) → 첫 로드부터 적용·주황 표시
+const _urlCloses=P.get('closes'), _urlBal=P.get('balance'), _urlShares=P.get('shares');
+if(_urlCloses) _urlCloses.split(',').forEach(s=>{ const i=s.indexOf(':'); if(i>0){ const n=Number(s.slice(i+1)); if(isFinite(n)&&n>0) _closeEdits[s.slice(0,i)]=String(n); } });
+if(_urlBal!=null&&_urlBal!==''){ const bn=Number(String(_urlBal).replace(/[^0-9.\-]/g,'')); if(isFinite(bn)) _janVal=String(bn); }
+if(_urlShares!=null&&_urlShares!==''){ const an=Number(String(_urlShares).replace(/[^0-9.]/g,'')); if(isFinite(an)&&an>=0) _amVal=String(an); }
+const RECALC_VIEW=!!(_urlCloses||_urlBal||_urlShares);   // 이 페이지 자체가 재계산 뷰 → 버튼은 제자리 재계산
+let _syOnce=parseInt(P.get('sy')||'',10);    // 재계산 이동 직전 스크롤 위치(px) — 첫 렌더 후 한 번 복원
+if(!isFinite(_syOnce))_syOnce=null;
+
+async function run(withEdits){
+  const start=gp('start');
+  if(!start){ $('msgbox').innerHTML=`설정이 없습니다. <a href="${INPUT_URL}">설정으로 돌아가기</a>`; $('summaryTxt').textContent='—'; return; }
+  const body={
+    ticker:(gp('ticker')||'SOXL').toUpperCase(),
+    시드:Number(gp('seed'))||20000,
+    분할수:Number(gp('div'))||20,
+    매도목표:(Number(gp('sell'))||20)/100,
+    큰수기준:(Number(gp('big'))||12)/100,
+    수수료율:(Number(gp('fee'))||0)/100,
+    시작일:start,
+    프리장반영:gp('pre')==='1',
+    일자별포함:true,
+  };
+  const end=gp('end'); if(end) body.종료일=end;   // 미지정=데이터 끝까지
+  const lst=liveState(); if(lst) body.내상태=lst;  // 내 상태로 시작 (기준일=start 스냅샷)
+  if(withEdits){   // '재계산': 수정한 종가들(모든 날짜)·잔금·누적개수(마지막 날짜)를 반영해 이 페이지를 갱신
+    const m={}; Object.entries(_closeEdits).forEach(([dt,v])=>{ const n=numOf(v); if(isFinite(n)&&n>0) m[dt]=n; });
+    if(Object.keys(m).length) body.종가수정=m;
+    const bn=numOf(_janVal); if(isFinite(bn)) body.잔금=bn;
+    const av=numOf(_amVal); if(isFinite(av)&&av>=0) body.누적개수=av;
+  }
+  try{
+    const r=await fetch('/api/backtest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok){ const err=await r.json().catch(()=>({})); throw new Error(err.detail||('HTTP '+r.status)); }
+    const d=await r.json();
+    saveParams(effParams());   // 성공한 설정을 쿠키에 갱신 (구형 링크로 와도 이후 내부 이동은 쿠키로)
+    if(_origClose===null && d.일자별 && d.일자별.헤더){   // 첫 로드 원본 종가 스냅샷 (수정 하이라이트 기준)
+      const hd=d.일자별.헤더, di=hd.indexOf('날짜'), ci=hd.indexOf('종가');
+      if(di>=0 && ci>=0){ _origClose={}; d.일자별.행.forEach(row=>{ if(row[ci]!=null&&row[ci]!=='') _origClose[isoDate(row[di])]=row[ci]; }); }
+    }
+    $('msgbox').hidden=true; $('results').hidden=false;
+    renderState(d.현재상태); renderCards(d.요약); renderCharts(d.차트); renderDaily(d.일자별);
+    syncCmpLink(d);            // 내상태 모드: '처음부터 시작' + 굴릴 구간이 있을 때만 설정 비교 노출
+    const c=d.설정;
+    $('summaryTxt').textContent=`${body.ticker} · ${c.분할수}분할 · 시드 $${Number(c.시드).toLocaleString()} · 매도목표 ${(c.매도목표*100).toFixed(0)}% · 큰수기준 ${(c.큰수기준*100).toFixed(0)}% · 수수료율 ${(c.수수료율*100).toFixed(2)}% · 프리장반영 ${c.프리장반영?'ON':'OFF'} · ${yymmdd(d.요약.시작일)} ~ ${yymmdd(d.요약.종료일)}`
+      +(body.내상태?` · 내 상태로 시작(기준일 ${yymmdd(start)})`:'')
+      +(body.종가수정?` · 종가수정 ${Object.keys(body.종가수정).length}건`:'')
+      +(body.잔금!=null?` · 잔금수정 ${money(body.잔금)}`:'');
+    document.title=`${body.ticker} 백테스트 결과`;
+    if(_syOnce!=null){ const y=_syOnce; _syOnce=null; requestAnimationFrame(()=>window.scrollTo(0,y)); }   // 이동 전 보던 위치로
+  }catch(e){
+    if(withEdits){ alert('재계산 오류: '+e.message); return; }   // 재계산 실패 시 기존 화면 유지
+    $('summaryTxt').textContent='—';
+    $('msgbox').innerHTML=`<span class="up">오류: ${e.message}</span> · <a href="${INPUT_URL}">설정으로 돌아가기</a>`;
+  }
+}
+async function recalc(){   // '이 값으로 재계산' 버튼
+  const hasEdits=Object.keys(_closeEdits).length>0 || isFinite(numOf(_janVal));
+  if(!RECALC_VIEW && hasEdits){
+    // 설정+수정값을 URL에 실어 이 탭이 재계산 뷰로 넘어간다(뒤로가기=원본 상태로 복귀).
+    const p=new URLSearchParams(location.search);
+    const parts=Object.entries(_closeEdits).map(([d,v])=>{ const n=numOf(v); return (isFinite(n)&&n>0)?d+':'+n:null; }).filter(Boolean);
+    if(parts.length) p.set('closes', parts.join(',')); else p.delete('closes');
+    const bn=numOf(_janVal); if(isFinite(bn)) p.set('balance', bn); else p.delete('balance');
+    p.set('sy', String(Math.round(window.scrollY||0)));   // 지금 보던 스크롤 위치를 실어 보냄
+    location.href=RECALC_URL+'?'+p.toString();
+    return;
+  }
+  // 재계산 뷰(또는 수정값 없음): 페이지 이동 없이 표·차트·상태 전부 갱신
+  const btn=$('recalcBtn'), old=btn.textContent;
+  btn.disabled=true; btn.textContent='재계산 중…';
+  try{ await run(true); }finally{ btn.disabled=false; btn.textContent=old; btn.blur(); }
+}
+$('sortBtn').onclick=toggleDailySort;
+$('recalcBtn').onclick=recalc;
+run(RECALC_VIEW);
+</script>
+<script>/* 🌙/☀️ 수동 테마 토글 — bttheme 쿠키(부모도메인)로 전 서브도메인 공유, 미선택 시 OS 자동 */
+(function(){
+  var b=document.getElementById('themeBtn'); if(!b) return;
+  var D=location.hostname.endsWith('smartdailyinfo.com')?';domain=.smartdailyinfo.com':'';
+  var mq=window.matchMedia('(prefers-color-scheme: dark)');
+  function eff(){return document.documentElement.dataset.theme||(mq.matches?'dark':'light');}
+  function paint(){var d=eff()==='dark';b.textContent=d?'☀️':'🌙';b.title=d?'라이트 모드로 전환':'다크 모드로 전환';}
+  b.addEventListener('click',function(){
+    var next=eff()==='dark'?'light':'dark';
+    document.documentElement.dataset.theme=next;
+    document.cookie='bttheme='+next+D+';path=/;max-age=31536000;samesite=lax';
+    paint();
+  });
+  mq.addEventListener&&mq.addEventListener('change',paint);
+  paint();
+})();</script>
+<script src="site.js?v=260905a"></script>
+</body>
+</html>

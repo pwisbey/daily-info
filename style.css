@@ -1,0 +1,362 @@
+:root{
+  --bg:#eceef1; --card:#ffffff; --ink:#14171a; --muted:#14171a; --line:#e6e8eb;
+  --up:#e5493a; --down:#2563eb; --accent:#111827; --chip:#f3f4f6; --chipline:#e5e7eb; --inputline:#14171a;
+  --acct:#4f46e5; --stock:#d97706; --zebra:rgba(0,0,0,.025);
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.05);
+}
+/* 다크 팔레트 — ①OS 자동(수동 선택 없을 때) ②🌙 토글 수동 선택(data-theme, bttheme 쿠키) */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#0e1116; --card:#161a21; --ink:#e8eaed; --muted:#ffffff; --line:#252b34;
+         --chip:#1e242c; --chipline:#2a313b; --inputline:#ffffff; --accent:#e8eaed; --acct:#818cf8; --stock:#f59e0b;
+         --zebra:rgba(255,255,255,.03); --shadow:0 1px 3px rgba(0,0,0,.4);}
+}
+:root[data-theme="dark"]{ --bg:#0e1116; --card:#161a21; --ink:#e8eaed; --muted:#ffffff; --line:#252b34;
+         --chip:#1e242c; --chipline:#2a313b; --inputline:#ffffff; --accent:#e8eaed; --acct:#818cf8; --stock:#f59e0b;
+         --zebra:rgba(255,255,255,.03); --shadow:0 1px 3px rgba(0,0,0,.4);}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Segoe UI",system-ui,sans-serif;
+  font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:18px}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+header h1{font-size:22px;margin:0;font-weight:700}
+.badge{font-size:13px;font-weight:600;color:#8a5a00;background:#ffe9b8;border:1px solid #f5cd6e;padding:3px 9px;border-radius:999px}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .badge{color:#ffd98a;background:#3a2e12;border-color:#5b4718}}
+:root[data-theme="dark"] .badge{color:#ffd98a;background:#3a2e12;border-color:#5b4718}
+.spacer{flex:1}
+.pill{font-size:13.5px;color:var(--muted);background:var(--card);border:1px solid var(--line);padding:5px 11px;border-radius:8px}
+.backlink{font-size:14px;font-weight:700;color:var(--ink);text-decoration:none;background:var(--bg);border:1px solid var(--inputline);border-radius:8px;padding:6px 12px}
+.backlink:hover{background:var(--chip)}
+/* 🌙/☀️ 라이트·다크 수동 토글 (헤더 오른쪽) — 라이트모드=검정 배경, 다크모드=카드색 */
+.themebtn{margin-left:auto;flex:none;width:36px;height:36px;padding:0;font-size:17px;line-height:1;background:#111827;border:1px solid #111827;border-radius:8px;cursor:pointer;box-shadow:var(--shadow)}
+.themebtn:hover{filter:brightness(1.3)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .themebtn{background:var(--card);border-color:var(--line)}}
+:root[data-theme="dark"] .themebtn{background:var(--card);border-color:var(--line)}
+.gobtn{font-size:14px;font-weight:700;line-height:1.45;box-sizing:border-box;color:#fff;background:var(--acct);text-decoration:none;border-radius:8px;padding:8px 15px;white-space:nowrap}
+.gobtn:hover{filter:brightness(1.08)}
+.navbtn{display:block;text-align:center;font-size:18px;font-weight:800;color:#fff;background:var(--up);text-decoration:none;border-radius:12px;padding:15px;margin-bottom:14px;box-shadow:var(--shadow)}
+.navbtn:hover{filter:brightness(1.08)}
+.navbtn.green{background:#16a34a}   /* 백테스트 결과 버튼 = 초록 */
+.navbtn.purple{background:#7c3aed}  /* 연간/월간 수익·세금 버튼 = 보라 */
+.navbtn.blue{background:#2563eb}    /* 설정 비교 버튼 = 파랑 (2026-08-01) */
+.navbtn[hidden]{display:none}       /* .navbtn의 display:block이 UA의 [hidden]을 이기므로 명시 (내상태에선 '설정 비교' 숨김) */
+
+/* ===== 배경색 버튼·칩의 글씨에 검정 윤곽선 (전 페이지 공통) =====
+   12방향 text-shadow = 흐림(blur) 0 · 상하좌우 대칭이라 그림자가 아니라 글자 테두리다
+   (-webkit-text-stroke는 획을 안쪽으로 파먹어 한글이 얇아지므로 안 씀).
+   대상은 '배경색이 깔린 버튼·칩의 글씨'뿐 — 아이콘 버튼(☰·👤✓·🌙: #111827 어두운 배경),
+   차트·범례 색상칩 같은 그림 요소, 흰/회색 배경 버튼에는 넣지 않는다.
+   굵기: 큰 버튼 1.8px · 작은 버튼/칩 1.2px (한글 획 사이가 메워지지 않는 한계선).
+   바깥 링(16/8방향) + 안쪽 보강 링(절반 반경) 2겹 — 안티에일리어싱으로 옅어지는 가장자리를
+   겹쳐 칠해 테두리가 회색으로 뜨지 않고 진하게 박힌다. */
+.navbtn,.runbig,.savebig,.btsave,.cafebtn{
+  text-shadow:1.8px 0 0 #000,-1.8px 0 0 #000,0 1.8px 0 #000,0 -1.8px 0 #000,
+              1.3px 1.3px 0 #000,-1.3px 1.3px 0 #000,1.3px -1.3px 0 #000,-1.3px -1.3px 0 #000,
+              1.8px .8px 0 #000,-1.8px .8px 0 #000,1.8px -.8px 0 #000,-1.8px -.8px 0 #000,
+              .8px 1.8px 0 #000,-.8px 1.8px 0 #000,.8px -1.8px 0 #000,-.8px -1.8px 0 #000,
+              .9px 0 0 #000,-.9px 0 0 #000,0 .9px 0 #000,0 -.9px 0 #000}
+.gobtn,.applyBtn,.cal-clearbtn,.cal-day.sel,.panel h2 .phaseTag,
+.btmbtn.danger,.btmi.danger,.run.alt,.lbl{
+  text-shadow:1.2px 0 0 #000,-1.2px 0 0 #000,0 1.2px 0 #000,0 -1.2px 0 #000,
+              .85px .85px 0 #000,-.85px .85px 0 #000,.85px -.85px 0 #000,-.85px -.85px 0 #000,
+              .6px 0 0 #000,-.6px 0 0 #000,0 .6px 0 #000,0 -.6px 0 #000}
+
+/* 결과페이지 하단 이동버튼 묶음: PC는 한 줄 2열, 모바일(≤640)은 기존처럼 세로 스택 */
+.navrow{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:14px;margin-bottom:14px}   /* PC: 버튼들이 한 줄 — 개수만큼 자동 등분(숨겨진 버튼은 자리도 안 잡음, 2026-08-01) */
+.navrow .navbtn{margin-bottom:0}
+@media (min-width:641px){.navrow .navbtn{font-size:clamp(14px,1.55vw,18px)}}   /* 3열이라 좁은 PC 폭에선 글자만 줄여 줄바꿈 방지 */
+@media (max-width:640px){.navrow{grid-auto-flow:row;gap:0;margin-bottom:0}.navrow .navbtn{margin-bottom:14px}}   /* 모바일: 한 줄에 하나씩 세로 스택 */
+/* 요약줄: 텍스트(span) + 오른쪽 '설정 저장' 버튼(site.js가 로그인 시 삽입) */
+.summary{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--ink);font-weight:600;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 13px;margin-bottom:14px;box-shadow:var(--shadow)}
+.summary>span{flex:1;min-width:0}   /* 긴 설정문은 여기서 줄바꿈 — 버튼은 오른쪽 고정 */
+.sumsave{flex:none;font-size:12.5px;padding:6px 12px;background:#16a34a}   /* 초록(.recalcbtn·.navbtn.green과 동일), 요약줄이 덜 두꺼워지게 축소 */
+/* 모드 탭 (설정·내상태 두 페이지 공용) — 제목과 설정칸 사이, 화면 반반. 탭 전환 = 페이지 이동 */
+.modetabs{display:flex;gap:10px;margin:0 0 14px}
+.mtab{flex:1;font:inherit;font-size:17px;font-weight:800;padding:14px 0;border-radius:12px;cursor:pointer;
+  border:1px solid var(--line);background:var(--card);color:var(--muted);box-shadow:var(--shadow)}
+.mtab.on{background:var(--accent);border-color:var(--accent);color:var(--card)}
+.params{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+  padding:12px 14px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+.f{display:flex;flex-direction:column;gap:4px}
+.f label{font-size:13px;color:var(--muted);font-weight:600}
+.f input,.f select{font:inherit;font-size:16px;padding:7px 9px;border:1px solid var(--inputline);border-radius:8px;background:var(--bg);color:var(--ink);width:116px}
+.f.sm input{width:92px}
+/* 종목 선택칸 — 사파리는 native menulist에 padding·line-height·radius를 안 먹여서 입력칸과 높이가 달라짐.
+   appearance 해제로 입력칸과 완전히 같은 박스(같은 font·padding·border·box-sizing)로 만들고 ▼는 CSS로 직접 그림 */
+.f select{-webkit-appearance:none;appearance:none;cursor:pointer;padding-right:24px;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 13px) center,calc(100% - 8px) center;
+  background-size:5px 5px;background-repeat:no-repeat}
+.toggle{display:flex;align-items:center;gap:6px;padding:7px 11px;border:1px solid var(--inputline);border-radius:8px;background:var(--bg);font-size:15px;font-weight:600;height:39px}
+.toggle input{width:24px;height:24px;margin:0;cursor:pointer;accent-color:var(--acct)}
+/* 커스텀 날짜 선택기 (수집된 거래일만 활성) */
+.cal-wrap{position:relative;display:inline-flex}
+.calbtn{font:inherit;font-size:16px;font-weight:600;height:39px;min-width:148px;text-align:left;padding:7px 11px;border:1px solid var(--inputline);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font-variant-numeric:tabular-nums}
+.cal-pop{position:absolute;top:calc(100% + 6px);left:0;z-index:90;width:284px;max-width:calc(100vw - 24px);padding:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,.32);text-align:left}
+.cal-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.cal-selects{display:flex;flex:1;gap:6px;justify-content:center}
+.cal-select{flex:1;min-width:0;background:var(--bg);border:1px solid var(--inputline);border-radius:8px;color:var(--ink);font:inherit;font-size:15px;font-variant-numeric:tabular-nums;padding:6px 8px}
+.cal-nav{border:1px solid var(--inputline);background:var(--bg);color:var(--ink);border-radius:8px;padding:6px 11px;font-size:16px;line-height:1;cursor:pointer}
+.cal-nav:hover{background:var(--chip)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-dow{text-align:center;font-size:12px;color:var(--muted);padding:4px 0 2px}
+.cal-day{border:none;background:transparent;color:var(--ink);border-radius:8px;font:inherit;font-size:14px;font-variant-numeric:tabular-nums;padding:0;aspect-ratio:1/1;cursor:pointer}
+.cal-day:hover:not(:disabled):not(.empty){background:var(--chip)}
+.cal-day:disabled{opacity:.25;cursor:default}
+.cal-day.empty{visibility:hidden}
+.cal-day.sel{background:var(--acct);color:#fff;font-weight:700}
+/* '오늘 (선택 해제)' = 종료일 달력에만 있는 버튼 — 초록(사이트 초록 #16a34a, 2026-08-02 사용자 지정.
+   구판은 실행 버튼과 같은 보라 #7c3aed였다) */
+.cal-clearbtn{display:block;width:100%;margin-top:8px;padding:7px 0;border:1px solid #16a34a;border-radius:8px;background:#16a34a;color:#fff;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.cal-clearbtn:hover{filter:brightness(1.08)}
+@media (max-width:520px){.cal-pop{position:fixed;top:50%;left:50%;right:auto;transform:translate(-50%,-50%);width:min(330px,calc(100vw - 32px))}.cal-select{font-size:16px}}
+.run{margin-left:auto;background:var(--accent);color:var(--card);border:none;font:inherit;font-weight:700;font-size:15px;padding:9px 18px;border-radius:8px;cursor:pointer;height:39px}
+.run:disabled{opacity:.5;cursor:default}
+.run.alt{margin-left:8px;background:var(--acct);color:#fff}
+.runbig{display:block;width:100%;background:#7c3aed;color:#fff;border:none;font:inherit;font-weight:800;font-size:19px;padding:16px;border-radius:12px;cursor:pointer;box-shadow:var(--shadow)}
+.runbig:hover{filter:brightness(1.08)}
+.savebig{display:block;width:100%;margin-top:10px;background:#ea580c;color:#fff;border:none;font:inherit;font-weight:800;font-size:19px;padding:16px;border-radius:12px;cursor:pointer;box-shadow:var(--shadow)}   /* 설정값 저장 = 실행 버튼과 동형, 주황 — 로그인 상태에서만 표시 */
+.savebig:hover{filter:brightness(1.08)}
+.savebig[hidden]{display:none}   /* display:block이 hidden 속성을 이기지 않도록 */
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .run{color:#0e1116}}
+:root[data-theme="dark"] .run{color:#0e1116}
+
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:14px}
+.panel h2{font-size:16px;margin:0;padding:11px 14px;border-bottom:1px solid var(--line);font-weight:700;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}   /* 제목·힌트 글자 밑선 맞춤 */
+.panel h2 .hint{font-weight:500;color:var(--muted);font-size:12.5px}
+.panel h2 .phaseTag{font-size:13.5px;font-weight:800;color:#fff;background:#4f46e5;padding:3px 11px;border-radius:999px}
+.sortbtn{margin-left:auto;font:inherit;font-size:13px;font-weight:700;line-height:1.45;box-sizing:border-box;color:var(--ink);background:var(--bg);border:1px solid var(--inputline);border-radius:7px;padding:6px 12px;cursor:pointer}
+.sortbtn:hover{background:var(--chip)}
+
+/* ===== 1) 현재상태 ===== */
+.stat{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--line)}
+.stat .s{background:var(--card);padding:9px 12px}
+.stat .s .k{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:3px}
+.stat .s .v{font-size:17.5px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat .s .g{font-size:12px;font-weight:600;margin-left:3px}
+.stat .s.phaseCell{background:#eef2ff}
+.stat .s.phaseCell .v{color:#4f46e5;font-weight:800}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .stat .s.phaseCell{background:#20263a}:root:not([data-theme="light"]) .stat .s.phaseCell .v{color:#a5b4fc}}
+:root[data-theme="dark"] .stat .s.phaseCell{background:#20263a}
+:root[data-theme="dark"] .stat .s.phaseCell .v{color:#a5b4fc}
+.up{color:var(--up)} .down{color:var(--down)} .muted{color:var(--muted)}
+/* 국면색 (전반=빨강·후반=파랑·새사이클=주황·리버스=초록) — phaseCell 강제색보다 우선 */
+.v.ph-red{color:var(--up)!important}.v.ph-blue{color:var(--down)!important}
+.v.ph-orange{color:var(--stock)!important}.v.ph-green{color:#16a34a!important}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .v.ph-green{color:#22c55e!important}}
+:root[data-theme="dark"] .v.ph-green{color:#22c55e!important}
+
+/* ===== 2) 매수표 ===== */
+.bs2{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:12px 14px 14px}
+.cap{font-size:14.5px;font-weight:800;margin:0 0 6px;color:var(--ink)}
+.cap small{font-weight:500;color:var(--muted);margin-left:6px}
+.cap.buy{color:var(--up)} .cap.sell{color:var(--down)}   /* 매수점=빨강 · 매도점=파랑 */
+.manualWrap{display:flex;align-items:center;gap:10px;margin:0 0 8px}   /* 입력 2줄 + 적용버튼(두 줄 세로 가운데) */
+.manualCol{display:flex;flex-direction:column;gap:6px;flex:0 1 auto}
+.manualRow{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted);font-weight:700}
+.manualRow label{width:2.2em;flex:none}
+.manualRow input{flex:1;min-width:0;max-width:170px;box-sizing:border-box;-webkit-appearance:none;appearance:none;font:inherit;font-size:15px;font-variant-numeric:tabular-nums;text-align:right;padding:6px 9px;border:1px solid var(--inputline);border-radius:8px;background:var(--bg);color:var(--ink)}
+.applyBtn{align-self:center;flex:none;white-space:nowrap;font:inherit;font-size:13.5px;font-weight:700;color:#fff;background:var(--up);border:none;outline:none;border-radius:8px;padding:12px 12px;cursor:pointer}   /* 빨간 배경, 두 입력줄 공통 적용 — 항상 한 줄(좁으면 입력칸이 줄어듦) */
+.applyBtn:hover{filter:brightness(1.08)}
+table.bt{width:100%;border-collapse:collapse;font-size:16.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.bt th,table.bt td{padding:8px 12px;text-align:right;border-bottom:1px solid var(--line)}
+table.bt th{color:var(--muted);font-weight:600;font-size:14px;position:sticky;top:0;background:var(--card);text-align:center!important}
+table.bt .g{font-size:13px;font-weight:600}   /* 종가대비 % 는 작게 */
+table.bt td:nth-child(3),table.bt td:nth-child(4){text-align:center}   /* 매매표 가격·개수 가운데 */
+table.bt tbody tr:nth-child(even){background:var(--zebra)}
+table.bt tbody tr:hover{background:var(--chip)}
+.buyPt{max-height:400px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.lbl{display:inline-block;font-size:13.5px;font-weight:700;padding:3px 8px;border-radius:5px}
+.k1{background:#e0f2fe;color:#0369a1}.k2{background:#ede9fe;color:#6d28d9}.k3{background:#f3f4f6;color:#4b5563}.k4{background:#fee2e2;color:#b91c1c}
+.k5{background:#dcfce7;color:#15803d}   /* MOC(리버스 진입일 매도) = 초록 */
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .k1{background:#0c4a6e;color:#bae6fd}:root:not([data-theme="light"]) .k2{background:#4c1d95;color:#ddd6fe}:root:not([data-theme="light"]) .k3{background:#2a313b;color:#cbd5e1}:root:not([data-theme="light"]) .k4{background:#7f1d1d;color:#fecaca}:root:not([data-theme="light"]) .k5{background:#14532d;color:#bbf7d0}}
+:root[data-theme="dark"] .k1{background:#0c4a6e;color:#bae6fd}
+:root[data-theme="dark"] .k2{background:#4c1d95;color:#ddd6fe}
+:root[data-theme="dark"] .k3{background:#2a313b;color:#cbd5e1}
+:root[data-theme="dark"] .k4{background:#7f1d1d;color:#fecaca}
+:root[data-theme="dark"] .k5{background:#14532d;color:#bbf7d0}
+.colHead{text-align:center!important}
+.emptyNote{color:var(--muted);font-size:14px;padding:14px 4px}
+table.bt td.emptyNote{text-align:center}   /* 안내문(리버스 진입일 등)은 표 전체 너비 가운데 */
+
+/* ===== 3) 나머지 ===== */
+/* 요약카드 4개 = 현재상태 패널과 동일한 룩: 한 박스 + 1px 셀 구분선 (.panel+.stat 방식) */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:14px}
+.card{background:var(--card);padding:13px 15px}
+.card .k{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:5px}
+.card .v{font-size:25px;font-weight:750}
+.card .sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+.card .v .dt{font-size:13px;font-weight:600;color:var(--muted);margin-left:4px}
+.chartbox{padding:10px 12px 8px;position:relative}
+svg{display:block;width:100%;height:auto;cursor:default}
+.chartlabel{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);padding:2px 4px 0}
+.legend{display:flex;gap:16px;font-size:12.5px;color:var(--muted);padding:6px 6px 2px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:3px}
+.legv{font-variant-numeric:tabular-nums}   /* 범례 마지막값 % — PC 전용 */
+@media (max-width:640px){.legend .legv{display:none}}
+/* 패널 제목 오른쪽의 곡선 켜기/끄기 스위치 (자산곡선의 '주가' — 등락폭이 커서 다른 곡선이 납작해지는 걸 푼다).
+   차트 툴바의 [로그] 토글과 같은 표현: 켜짐=보라 채움 · 꺼짐=평범한 테두리. margin-left:auto로 제목 줄 오른쪽 끝.
+   2026-08-02 (범례를 누르게 했더니 토글인 줄 모르겠다는 지적 → 눈에 띄는 버튼으로 옮김) */
+.h2tog{margin-left:auto;font:inherit;font-size:13px;font-weight:700;line-height:1.45;box-sizing:border-box;
+  color:#fff;background:#7c3aed;border:1px solid #7c3aed;border-radius:7px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+.h2tog:hover{background:#6d28d9;border-color:#6d28d9}
+.h2tog.off{color:var(--ink);background:var(--bg);border-color:var(--inputline)}
+.h2tog.off:hover{background:var(--chip)}
+.tt{position:absolute;top:8px;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:8px 10px;font-size:13px;display:none;z-index:5;min-width:120px}
+.tt .tt-d{font-weight:700;margin-bottom:4px}.tt .tt-r{display:flex;align-items:center;gap:5px;line-height:1.6}
+.tt .tt-r i{width:9px;height:9px;border-radius:2px}.tt .tt-r b{margin-left:auto}
+/* 차트 v2 — stock_chart 종목상세/비교 조작감 이식 */
+.chart-readout{height:18px;text-align:center;font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap}
+.chart-canvas{position:relative}
+.chart-canvas svg{display:block}
+.chart-hit{position:absolute;top:0;left:0;right:0;bottom:0;cursor:default;touch-action:none}   /* 커서는 기본 화살표 유지. 드래그=크로스헤어(페이지 스크롤 아님). inset 미지원 호환 명시좌표 */
+.chart-hit.pannable{cursor:grab}      /* PC 확대 상태: 잡아끌어 시점 이동 가능 */
+.chart-hit.panning{cursor:grabbing}
+.cgrid{stroke:rgba(0,0,0,.07);stroke-width:1}
+.caxis{fill:var(--muted);font-size:10.5px;font-family:inherit}   /* 다크모드=--muted 흰색 (날짜·퍼센트 라벨) */
+.cbase{stroke:var(--line);stroke-dasharray:4 4}
+.ccross{stroke:rgba(0,0,0,.38);stroke-width:1}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .cgrid{stroke:rgba(255,255,255,.08)}
+  :root:not([data-theme="light"]) .ccross{stroke:rgba(255,255,255,.4)}
+}
+:root[data-theme="dark"] .cgrid{stroke:rgba(255,255,255,.08)}
+:root[data-theme="dark"] .ccross{stroke:rgba(255,255,255,.4)}
+.dot-label{position:absolute;display:flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--line);border-radius:7px;padding:2px 8px;font-size:12px;font-weight:700;pointer-events:none;white-space:nowrap;box-shadow:0 1px 5px rgba(0,0,0,.10);z-index:4}
+.dot-label-dot{width:8px;height:8px;border-radius:50%;flex:none}
+.dot-label-name{color:var(--muted);font-weight:600;font-size:11.5px}
+.chart-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.chart-zoom{display:flex;gap:6px;padding:6px 2px 2px;margin-left:auto}   /* 범례가 길어 줄바꿈돼도 줌 버튼은 항상 오른쪽 */
+.chart-zoom-btn{font:inherit;font-size:13px;font-weight:700;line-height:1;color:var(--ink);background:var(--bg);border:1px solid var(--inputline);border-radius:7px;padding:5px 12px;cursor:pointer}
+.chart-zoom-btn:hover{background:var(--chip)}
+.chart-zoom-reset{font-size:12px}
+/* 로그축 토글 켜짐 — 자산곡선 차트에만 붙는다(MDD는 음수라 로그 불가). 2026-08-01 */
+.chart-zoom-btn.on{background:#7c3aed;border-color:#7c3aed;color:#fff}
+.chart-zoom-btn.on:hover{background:#6d28d9}
+.moreRow td{padding:4px 2px}
+.moreBtn{width:100%;font:inherit;font-size:13px;font-weight:700;color:var(--ink);background:var(--bg);border:1px dashed var(--inputline);border-radius:7px;padding:6px;cursor:pointer}
+.moreBtn:hover{background:var(--chip)}
+/* 표 상자 높이 = 화면 높이에 맞춘다 (2026-08-02 지적: 460px 고정이라 큰 화면에서도 열 줄 남짓만
+   보이고 상자 안에서 또 끌어야 했다). 96px = 패널 제목줄+여백 몫 → 표까지 내리면 화면을 꽉 채운다.
+   머리글은 sticky(.log th)라 아무리 내려도 열 이름이 남는다.
+   dvh = 모바일 주소창이 접히고 펴지는 만큼까지 반영(미지원 브라우저는 위 vh 규칙을 그대로 쓴다). */
+.logwrap{overflow:auto;max-height:calc(100vh - 96px)}
+@supports (height:100dvh){.logwrap{max-height:calc(100dvh - 96px)}}
+.log{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.log th,.log td{padding:5px 9px;text-align:right;border-bottom:1px solid var(--line)}
+.log td:first-child{text-align:left}
+.log td .muted{display:block;text-align:center}   /* 빈칸 - 는 우측정렬 대신 가운데 */
+.log td.ctr{text-align:center}   /* 종료(+)·리버스(R) 열은 가운데 */
+.janCell{padding:3px 5px!important}
+.janEdit{width:100%;min-width:90px;box-sizing:border-box;-webkit-appearance:none;appearance:none;font:inherit;font-size:14px;font-variant-numeric:tabular-nums;text-align:right;padding:5px 7px;border:1px solid var(--inputline);border-radius:6px;background:var(--bg);color:var(--ink)}
+.janEdit:focus{outline:none;box-shadow:0 0 0 3px rgba(79,70,229,.25)}
+.janEdit.ctrEdit{text-align:center}   /* 누적개수 수정칸 = 열 정렬(가운데)과 통일 */
+.closeEdit{min-width:72px}
+.janEdit.edited{border-color:#f59e0b;background:rgba(245,158,11,.10)}
+.tblbtn{font-size:13px;padding:7px 13px;background:var(--up)}
+button.gobtn{border:0;outline:none;cursor:pointer;font-family:inherit;-webkit-appearance:none;appearance:none}
+button.gobtn:focus,button.gobtn:focus-visible{outline:none}
+button.gobtn:disabled{opacity:.55;cursor:default}
+.recalcbtn{background:#16a34a}   /* 이 값으로 재계산 = 초록 */
+.log th{position:sticky;top:0;background:var(--card);color:var(--muted);font-weight:600;font-size:12px;text-align:center;line-height:1.25;vertical-align:middle}
+
+.msg{padding:14px;font-size:15px;color:var(--muted)}
+.msg.err{color:var(--up)}
+@media (max-width:820px){.stat{grid-template-columns:repeat(3,1fr)}.cards{grid-template-columns:repeat(2,1fr)}.bs2{grid-template-columns:1fr}}
+@media (max-width:520px){.stat{grid-template-columns:repeat(2,1fr)}.wrap{padding:12px}}
+@media (max-width:640px){.pagehdr{justify-content:center;text-align:center;position:relative}.pagehdr .backlink{position:absolute;left:0;top:50%;transform:translateY(-50%)}.pagehdr .themebtn{position:absolute;right:0;top:50%;transform:translateY(-50%)}.pagehdr h1{padding:0 42px}}   /* 모바일: 제목만 정중앙, ← 설정 왼쪽·🌙 토글 오른쪽 고정 */
+@media (max-width:640px){.stat{gap:7px;background:transparent}.stat .s{border:1px solid var(--inputline);border-radius:9px}
+.cards{gap:7px;background:transparent;border:none;box-shadow:none;overflow:visible}.card{border:1px solid var(--inputline);border-radius:9px}
+.card .sub{font-size:11px;white-space:nowrap}   /* 좁은 카드에서 '주가 -87.97% (날짜)' 한 줄 유지 */
+.card .v{line-height:1.2}
+.card .v .dt{display:block;margin:0 0 6px;line-height:1.2}   /* MDD 날짜: 위의 값에 붙이고, 아래 주가 줄과 띄움 */
+.loghdr .hint{order:1;flex-basis:100%}   /* 매매기록 헤더: 힌트는 제목 아래 줄, 버튼 3개는 한 줄 */
+.loghdr .sortbtn,.loghdr .tblbtn{order:2;flex:1 1 0;min-width:0;white-space:nowrap;text-align:center;padding:7px 4px;font-size:12.5px;margin-left:0}
+.sumsave{white-space:pre-line;text-align:center;line-height:1.3;font-size:16.5px;padding:6px 10px}}   /* 모바일: '설정 / 저장' 두 줄 — 라벨의 \n을 살림(PC는 .gobtn nowrap이 공백으로 접어 한 줄) */
+
+/* ===== 내 설정 드로어(☰ 왼쪽) + 계정 드롭다운(오른쪽) — site.js 공용 UI ===== */
+.pagehdr{position:relative}
+.menubtn{flex:none;width:36px;height:36px;padding:0;font-size:18px;line-height:1;color:#fff;background:#111827;border:1px solid #111827;border-radius:8px;cursor:pointer;box-shadow:var(--shadow)}
+.menubtn:hover{filter:brightness(1.3)}
+.acctbtn{margin-left:auto;flex:none;height:36px;padding:0 13px;font:inherit;font-size:13.5px;font-weight:700;color:#fff;background:#111827;border:1px solid #111827;border-radius:8px;cursor:pointer;box-shadow:var(--shadow);white-space:nowrap}
+.acctbtn:hover{filter:brightness(1.3)}
+/* PC 헤더 정렬: 제목이 남는 폭을 전부 먹어 오른쪽 버튼들(👤✓·🌙)을 끝으로 민다.
+   구 규칙은 `.themebtn{margin-left:0}` + `.acctbtn{margin-left:auto}` 조합이라
+   **계정 버튼이 없거나 숨겨지면**(로그아웃 시 display:none · privacy처럼 site.js 미로드 ·
+   주입 전 첫 페인트) 미는 주체가 사라져 🌙이 제목 옆에 붙었다. 이제 h1이 밀어서 상태 무관.
+   모바일(≤640px)은 h1 정중앙 + 버튼 절대배치라 이 규칙을 적용하지 않는다. */
+@media (min-width:641px){
+  .pagehdr h1{margin-right:auto}
+  .pagehdr .acctbtn,.pagehdr .themebtn{margin-left:0}
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .menubtn,:root:not([data-theme="light"]) .acctbtn{background:var(--card);border-color:var(--line);color:var(--ink)}}
+:root[data-theme="dark"] .menubtn,:root[data-theme="dark"] .acctbtn{background:var(--card);border-color:var(--line);color:var(--ink)}
+/* 계정 드롭다운 */
+.btpop{position:absolute;top:calc(100% + 6px);right:48px;z-index:120;min-width:210px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,.28);padding:6px;text-align:left}
+.btpi{display:block;width:100%;box-sizing:border-box;font:inherit;font-size:14.5px;font-weight:600;color:var(--ink);background:transparent;border:none;border-radius:8px;padding:10px 12px;text-align:left;cursor:pointer;text-decoration:none}
+button.btpi:hover,a.btpi:hover{background:var(--chip)}
+.btpi.stat{color:var(--muted);cursor:default;font-weight:700}
+.btpi.danger{color:var(--up)}
+/* 드로어 */
+.btdim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200}
+.btdrawer{position:fixed;top:0;left:0;bottom:0;width:302px;max-width:86vw;background:var(--card);z-index:201;display:flex;flex-direction:column;transform:translateX(-102%);visibility:hidden;transition:transform .18s ease,visibility .18s;box-shadow:8px 0 30px rgba(0,0,0,.25)}
+.btdrawer.open{transform:none;visibility:visible}
+.bthd{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:13px 16px;border-bottom:1px solid var(--line);font-size:16.5px}
+.bthd b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 닫기 = 왼쪽 끝 ‹ (드로어가 왼쪽에서 나오니 되돌리는 방향과 같다) — 개인용 사이트와 동일, 2026-09-05.
+   svg 에 크기를 못 박는 이유: 위쪽 전역 규칙 `svg{width:100%;height:auto;cursor:default}` 은 차트용이라 그냥 두면 아이콘이 버튼 폭만큼 커진다. */
+.btx{flex:none;display:flex;align-items:center;border:none;background:transparent;color:var(--muted);line-height:1;cursor:pointer;padding:6px 8px;margin:-6px 0 -6px -8px;border-radius:8px}
+.btx:hover{background:var(--chip)}
+.btx svg{display:block;width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;cursor:inherit}
+.btacct-m{display:none;border-bottom:1px solid var(--line);padding:6px}
+.btlist{flex:1;overflow:auto;padding:10px 12px;position:relative}   /* position=드롭선(.btdrop) 기준 */
+.btitem{display:flex;gap:6px;margin-bottom:7px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+/* 순서 바꾸기: 끌고 있는 항목 + 놓일 자리 보라선 (PC 드래그 · 모바일 길게 눌러 이동) */
+.btitem.btdrag{opacity:.5;position:relative;z-index:3}
+.btdrop{position:absolute;left:12px;right:12px;height:0;border-top:2.5px solid #7c3aed;pointer-events:none;z-index:4}
+.btrun{flex:1;min-width:0;font:inherit;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 12px;cursor:pointer;color:var(--ink)}
+.btrun:hover{border-color:var(--inputline);background:var(--chip)}
+.btrun b{display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btrun small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btmore{flex:none;width:34px;border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:10px;font-size:16px;cursor:pointer}
+.btmore:hover{background:var(--chip);color:var(--ink)}
+.btempty{color:var(--muted);font-size:14px;text-align:center;padding:22px 8px;line-height:1.7}
+.btsave{display:block;margin:4px 14px 10px;padding:12px;font:inherit;font-size:15px;font-weight:800;color:#fff;background:#7c3aed;border:none;border-radius:10px;cursor:pointer;text-align:center;text-decoration:none}
+.btsave:hover{filter:brightness(1.08)}
+.btsync{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 16px 12px;font-size:13px;color:var(--muted)}
+.btcnt{font-variant-numeric:tabular-nums}
+.btlink{border:none;background:transparent;color:var(--acct);font:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline}
+.btfoot{border-top:1px solid var(--line);padding:11px 16px;font-size:12.5px}
+.btfoot a{color:var(--muted);text-decoration:none}
+.btfoot a:hover{text-decoration:underline}
+/* 모달 */
+.btmdim{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px}
+.btmodal{width:min(360px,100%);background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:18px}
+.btmodal h3{margin:0 0 12px;font-size:17px}
+.btin{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--inputline);border-radius:8px;background:var(--bg);color:var(--ink)}
+.btin-code{font-family:ui-monospace,Menlo,monospace;text-transform:uppercase;letter-spacing:1px}
+.btmrow{display:flex;gap:8px;margin-top:14px}
+.btmbtn{flex:1;font:inherit;font-size:15px;font-weight:700;padding:11px;border:none;border-radius:8px;cursor:pointer;background:var(--accent);color:var(--card)}
+.btmbtn.ghost{background:var(--bg);border:1px solid var(--inputline);color:var(--ink)}
+.btmbtn.danger{background:var(--up);color:#fff}
+.btmbtn:hover{filter:brightness(1.06)}
+.btcode{font-family:ui-monospace,Menlo,monospace;font-size:21px;font-weight:800;letter-spacing:1px;text-align:center;padding:14px 8px;border:1.5px dashed var(--inputline);border-radius:10px;margin:4px 0 2px;user-select:all;font-variant-numeric:tabular-nums}
+.btwarn{font-size:13px;color:var(--muted);line-height:1.65;margin-top:10px}
+.btmcol{display:flex;flex-direction:column;gap:7px}
+.btmi{font:inherit;font-size:15px;font-weight:700;padding:11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer}
+.btmi:hover{background:var(--chip)}
+.btmi.danger{background:var(--up);border-color:var(--up);color:#fff}
+.btmi.ghost{color:var(--muted)}
+.menubtn-txt{width:auto;padding:0 13px;font-size:13.5px;font-weight:700}   /* 로그아웃: 왼쪽 버튼이 '로그인' 텍스트 */
+.btdrawer.showacct .btacct-m{display:block}      /* 로그아웃 드로어: 상단에 로그인 메뉴 상시 */
+@media (max-width:640px){
+  .acctbtn{display:none}                          /* 모바일: 로그인은 드로어 상단에서 */
+  .btacct-m{display:block}
+  .pagehdr .menubtn{position:absolute;left:0;top:50%;transform:translateY(-50%)}
+  .pagehdr:has(.backlink) .backlink{left:42px}    /* 결과페이지: ☰ 옆으로 비켜서기 */
+  .pagehdr:has(.backlink) h1{padding:0 46px 0 100px}
+  .pagehdr:has(.menubtn-txt) h1{padding:0 46px 0 76px}                     /* '로그인' 텍스트 폭만큼 */
+  .pagehdr:has(.menubtn-txt) .backlink{left:78px}
+  .pagehdr:has(.menubtn-txt):has(.backlink) h1{padding:0 46px 0 136px}
+}
